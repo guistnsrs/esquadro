@@ -424,5 +424,27 @@ assert.strictEqual(G.recortar(janela, [0, 1, 2]), null);
   const ei=G.vertices(edge).findIndex(p=>p.x===32&&p.y===0&&p.z===64);
   assert.equal(edge.malha.faces.filter(f=>f.includes(ei)).length,2,'aresta compartilhada é atualizada nas duas faces');
 }
+{
+  const ring={...nova(4),x:0,y:0,z:0,w:100,h:100,espessura:20,
+    furos:[[[.3,.3],[.7,.3],[.7,.7],[.3,.7]]]};
+  const vs=G.vertices(ring),i=vs.findIndex(p=>p.x===0&&p.y===0&&p.z===20);
+  const cap=G.criarVerticeRelativo(ring,i,{x:20,y:20,z:0});
+  assert.ok(cap&&cap.malha,'tampa com furo recebe novo vértice');
+  assert.equal(G.criarVerticeRelativo(ring,i,{x:50,y:50,z:0}),null,'não cria ponto no vazio do furo');
+  const topo=G.cameraOrbita(0,90),p=G.projetar({x:50,y:50,z:20},topo);
+  assert.equal(G.dentroForma([p.x,p.y],cap,topo),false,'o vão permanece aberto após triangular a tampa');
+  const j=vs.findIndex(p=>p.x===30&&p.y===30&&p.z===20);
+  const inner=G.criarVerticeRelativo(ring,j,{x:0,y:20,z:-10});
+  assert.ok(inner&&G.vertices(inner).some(p=>p.x===30&&p.y===50&&p.z===10),'parede interna do furo recebe vértice');
+  const edges=new Map();
+  for(const face of cap.malha.faces)for(let k=0;k<face.length;k++){const key=[face[k],face[(k+1)%face.length]].sort((a,b)=>a-b).join(':');edges.set(key,(edges.get(key)||0)+1);}
+  assert.ok([...edges.values()].every(n=>n===2),'a malha com furo continua fechada sem arestas soltas');
+  for(const axis of ['x','y']) {
+    const [rot]=G.rotacionarGrupo([ring],axis,90),verts=G.vertices(rot),start=verts[0];
+    const face=G.malhaDoPrisma(rot).faces.find(f=>f.includes(0)&&f.length===3);
+    const mesh=G.malhaDoPrisma(rot),center=face.reduce((s,id)=>({x:s.x+mesh.v[id].x/3,y:s.y+mesh.v[id].y/3,z:s.z+mesh.v[id].z/3}),{x:0,y:0,z:0});
+    assert.ok(G.criarVerticeRelativo(rot,0,{x:center.x-start.x,y:center.y-start.y,z:center.z-start.z}),`furo preservado no eixo ${axis}`);
+  }
+}
 console.log('geometria: todos os testes passaram');
 

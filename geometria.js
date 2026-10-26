@@ -4,6 +4,7 @@
 // (global `Geometria`) e no Node (`require`), para os testes.
 (function (raiz) {
   'use strict';
+  const triangulador = typeof module !== 'undefined' && module.exports ? require('./earcut.js') : raiz.Earcut;
 
   const LADO = 32;           // px por lado de todo polígono novo
   const DIAMETRO = 32;       // px de diâmetro do círculo novo
@@ -845,6 +846,19 @@
   // A malha de um prisma, em coordenadas do mundo, na mesma ordem de vertices(f).
   function malhaDoPrisma(f) {
     const P = prisma(f);
+    if(P.furos.length) {
+      const rings=[P,...P.furos],a=rings.flatMap(r=>r.a),b=rings.flatMap(r=>r.b),v=a.concat(b),n=a.length;
+      const A=eixoDe(f),plane={x:p=>[p.y,p.z],y:p=>[p.x,p.z],z:p=>[p.x,p.y]}[A];
+      const holes=[];let offset=P.a.length;
+      for(const h of P.furos){holes.push(offset);offset+=h.a.length;}
+      const flat=a.flatMap(plane),ids=triangulador.earcut(flat,holes,2);
+      if(triangulador.deviation(flat,holes,2,ids)>1e-7) throw new Error('Não foi possível triangular a face com furos.');
+      const orient=(face,normal)=>dot3(normal3(face.map(i=>v[i])),normal)<0?face.slice().reverse():face;
+      const faces=[];
+      for(let i=0;i<ids.length;i+=3){const t=ids.slice(i,i+3);faces.push(orient(t,P.e.map(c=>-c)));if(P.comprimento>0)faces.push(orient(t.map(j=>j+n),P.e));}
+      if(P.comprimento>0){offset=0;for(const ring of rings){for(let i=0;i<ring.a.length;i++){const j=(i+1)%ring.a.length;faces.push(orient([offset+i,offset+j,n+offset+j,n+offset+i],ring.normais[i]));}offset+=ring.a.length;}}
+      return {v:P.comprimento>0?v:a,faces,aberta:P.comprimento<=0};
+    }
     const n = P.a.length;
     if (P.comprimento <= 0) return { v: P.a, faces: [P.a.map((_, i) => i)], aberta: true };
     const v = P.a.concat(P.b);
@@ -857,26 +871,27 @@
   // Insere um ponto relativo numa face incidente ao vértice de origem. Triangula
   // a face para o ponto passar a integrar sua topologia e poder ser arrastado.
   function criarVerticeRelativo(f, indice, delta) {
-    if (furosUV(f).length) return null;
     const origem=vertices(f)[indice];
     if(!origem || !['x','y','z'].every(k=>Number.isFinite(delta[k]))) return null;
     const p=Object.fromEntries(['x','y','z'].map(k=>[k,limpa(origem[k]+delta[k])]));
     const m=f.malha?malhaMundo(f):malhaDoPrisma(f);
     if(m.v.some(q=>Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z)<1e-5)) return null;
     const source=m.v.findIndex(q=>Math.hypot(q.x-origem.x,q.y-origem.y,q.z-origem.z)<1e-5);
+    const incidentes=m.faces.filter(face=>face.includes(source)).map(face=>normal3(face.map(i=>m.v[i])));
+    const ligada=face=>face.includes(source)||incidentes.some(n=>face.every(i=>Math.abs(dot3(n,sub3(m.v[i],origem)))<1e-5));
     const novo=m.v.length;
     const sobreSegmento=(a,b)=>{
       const d=sub3(b,a),v=sub3(p,a),l=dot3(d,d),t=dot3(v,d)/(l||1);
       return t>1e-6&&t<1-1e-6&&Math.hypot(...v.map((x,i)=>x-t*d[i]))<1e-5;
     };
     // Aresta compartilhada: inserir em todas as faces evita fendas na malha.
-    const edge=m.faces.some(face=>face.includes(source)&&face.some((i,k)=>sobreSegmento(m.v[i],m.v[face[(k+1)%face.length]])));
+    const edge=m.faces.some(face=>ligada(face)&&face.some((i,k)=>sobreSegmento(m.v[i],m.v[face[(k+1)%face.length]])));
     if(edge) {
       const faces=m.faces.map(face=>face.flatMap((i,k)=>sobreSegmento(m.v[i],m.v[face[(k+1)%face.length]])?[i,novo]:[i]));
       return formaDeMalha(f,{...m,v:[...m.v,p],faces});
     }
     for(let fi=0;fi<m.faces.length;fi++) {
-      const face=m.faces[fi]; if(!face.includes(source)) continue;
+      const face=m.faces[fi]; if(!ligada(face)) continue;
       const pts=face.map(i=>m.v[i]),n=normal3(pts);
       if(Math.abs(dot3(n,sub3(p,pts[0])))>1e-5) continue;
       const drop=n.map(Math.abs).indexOf(Math.max(...n.map(Math.abs))),axes=['x','y','z'].filter((_,i)=>i!==drop);
