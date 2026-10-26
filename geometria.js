@@ -232,6 +232,20 @@
       return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
     });
     const antes = (a, b) => {
+      // Uma placa horizontal fina funciona como piso. Quando contém a base de
+      // uma parede, desenha-se primeiro: a profundidade média da placa enorme
+      // pode colocá-la depois da parede e cobrir sua parte inferior no painter.
+      const ehPiso = (i) => {
+        const f=formas[i], c=cx[i], esp=c.z1-c.z0;
+        return eixoDe(f)==='z' && esp<=16+EPS && c.x1-c.x0>=Math.max(64,esp*4) && c.y1-c.y0>=Math.max(64,esp*4);
+      };
+      if(cam.d[2]>0.05) {
+        const pa=ehPiso(a),pb=ehPiso(b);
+        if(pa!==pb) {
+          const piso=pa?a:b,volume=pa?b:a;
+          if(cx[volume].z0>=cx[piso].z0-EPS && cx[volume].z1>cx[piso].z1+EPS) return pa;
+        }
+      }
       for (const [k, lo, hi] of [[0, 'x0', 'x1'], [1, 'y0', 'y1'], [2, 'z0', 'z1']]) {
         const s = cam.d[k];
         if (Math.abs(s) < 1e-3) continue; // eixo de perfil: não decide

@@ -400,5 +400,16 @@ assert.strictEqual(G.recortar(janela, [0, 1, 2]), null);
   const corteMesh=G.vazarPelaFace(red,portalMesh);
   assert.ok(Array.isArray(corteMesh)&&corteMesh.length===2,'alvo mesclado em malha extrudida aceita o mesmo recorte');
 }
+// O piso fino deve ser pintado antes da parede que nasce nele, mesmo quando
+// a profundidade média da placa grande sugeriria a ordem inversa.
+{
+  const piso={...nova(4),x:0,y:0,z:0,w:512,h:512,espessura:8};
+  const parede={...nova(4),x:220,y:220,z:0,w:8,h:8,espessura:192};
+  for(const lista of [[piso,parede],[parede,piso]]) {
+    const ordenadas=G.ordemDesenho(lista,G.cameraOrbita(45,35));
+    assert.equal(ordenadas[0],piso,'piso fica atrás da parede para a câmera');
+    assert.equal(ordenadas[1],parede);
+  }
+}
 console.log('geometria: todos os testes passaram');
 
