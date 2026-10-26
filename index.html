@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esquadro</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --painel: #131313; --campo: #0b0b0b; --borda: #262626; --borda-forte: #353535;
+    --botao: #1f1f1f; --botao-hover: #2a2a2a; --ativo: #3a3f47;
+    --texto: #dadada; --fraco: #8a8a8a; --apagado: #5c5c5c; --azul: #5aa0ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--texto);
+    font: 13px/1.4 system-ui, "Segoe UI", sans-serif; overflow: hidden; }
+  body { display: flex; }
+  svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6;
+    stroke-linecap: round; stroke-linejoin: round; }
+  button { background: var(--botao); color: var(--texto); border: 1px solid var(--borda-forte); border-radius: 6px;
+    padding: 6px 10px; font: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  button:hover:not(:disabled) { background: var(--botao-hover); }
+  button:disabled { opacity: .35; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--azul); outline-offset: 1px; }
+  button.primario { background: #e8e8e8; color: #111; border-color: #e8e8e8; font-weight: 600; }
+  button.primario:hover:not(:disabled) { background: #fff; }
+  button.icone { padding: 6px; background: transparent; border-color: transparent; color: var(--fraco); }
+  button.icone:hover:not(:disabled) { background: var(--botao-hover); color: var(--texto); }
+  input[type=number], select, input[type=text] { background: var(--campo); color: var(--texto); border: 1px solid var(--borda);
+    border-radius: 6px; padding: 5px 7px; font: inherit; min-width: 0; }
+
+  /* ---------- painel ---------- */
+  aside { width: var(--largura-painel, 264px); flex: none; position: relative; z-index: 5; background: var(--painel); border-right: 1px solid var(--borda);
+    display: flex; flex-direction: column; min-height: 0; }
+  .topo { display: flex; align-items: center; gap: 2px; padding: 10px 8px 10px 14px; border-bottom: 1px solid var(--borda); }
+  .topo h1 { font-size: 14px; font-weight: 600; margin: 0; flex: 1; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topo h1 .suja { margin-left: 4px; color: var(--azul); }
+  .topo h1 small { display: block; font-size: 10px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--apagado); }
+  .rolagem { flex: 1; overflow-y: auto; padding: 4px 0 16px; }
+  details { border-bottom: 1px solid var(--borda); }
+  summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 11px 14px; cursor: pointer;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--fraco); user-select: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: ''; margin-left: auto; width: 6px; height: 6px; border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; }
+  details[open] > summary::after { transform: rotate(45deg); }
+  summary:hover { color: var(--texto); }
+  summary .contador { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--apagado); }
+  .conteudo { padding: 0 14px 14px; }
+
+  /* formas */
+  .formas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .formas button { flex-direction: column; gap: 3px; padding: 8px 4px 6px; font-size: 11px; color: var(--fraco); }
+  .formas button svg { width: 30px; height: 30px; stroke: #cfcfcf; stroke-width: 1.4; fill: rgba(220,220,220,.10); }
+  .formas button:hover svg { fill: rgba(220,220,220,.22); }
+  .outro { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--fraco); font-size: 12px; }
+  .outro input { width: 56px; text-align: center; }
+  .outro button { margin-left: auto; padding: 5px 9px; }
+
+  /* propriedades */
+  #props[hidden] { display: none; }
+  #info { color: var(--texto); font-weight: 500; margin-bottom: 2px; }
+  #info-extra { color: var(--fraco); font-size: 12px; margin-bottom: 10px; min-height: 1em; }
+  .eixos { display: grid; grid-template-columns: 62px repeat(3, 1fr); gap: 6px; align-items: center; margin-bottom: 6px; }
+  .eixos .rotulo { color: var(--fraco); font-size: 12px; }
+  .campo { position: relative; display: block; }
+  .campo span { position: absolute; left: 7px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 700;
+    color: var(--apagado); pointer-events: none; }
+  .campo input { width: 100%; padding-left: 18px; }
+  .campo input::-webkit-inner-spin-button { display: none; }
+  .acoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+  .acoes button { flex-direction: column; gap: 2px; font-size: 11px; padding: 7px 4px; color: var(--fraco); }
+  .acoes button:hover:not(:disabled) { color: var(--texto); }
+  .acoes button.perigo:hover:not(:disabled) { color: #ff8a80; }
+  .sem-selecao { color: var(--apagado); font-size: 12px; margin: 0; }
+
+  .borda-painel { position: absolute; top: 0; right: -3px; width: 6px; height: 100%; cursor: col-resize; z-index: 3; }
+  .borda-painel:hover, .borda-painel.arrastando, .borda-painel:focus-visible { background: var(--azul); opacity: .6; outline: none; }
+
+  #dica-biblioteca { position: fixed; z-index: 1000; pointer-events: none; white-space: pre-line; max-width: min(340px, calc(100vw - 16px)); overflow-wrap: anywhere; padding: 9px 12px; border: 1px solid #555; border-radius: 6px; background: #252525; color: #eee; box-shadow: 0 3px 14px #0008; font-size: 12px; line-height: 1.6; }
+  [draggable="true"] { cursor: grab; }
+  #vista.recebendo-peca { outline: 2px solid #4696ff; outline-offset: -2px; }
+  /* biblioteca */
+  .biblioteca { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+  .biblioteca .item { min-width: 0; }
+  .biblioteca .vazio { grid-column: 1 / -1; color: var(--apagado); font-size: 12px; margin: 0; }
+  .biblioteca .item { position: relative; }
+  .biblioteca .usar { width: 100%; flex-direction: column; gap: 4px; padding: 6px 4px 5px; font-size: 11px; color: var(--fraco); }
+  .biblioteca .usar:hover { color: var(--texto); }
+  .biblioteca .usar span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .biblioteca .tirar { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; padding: 0; border-radius: 50%;
+    font-size: 12px; line-height: 1; background: #000; border-color: var(--borda-forte); color: var(--fraco); opacity: 0; }
+  .biblioteca .item:hover .tirar, .biblioteca .tirar:focus-visible { opacity: 1; }
+  .rodape-biblioteca { display: flex; align-items: center; gap: 2px; margin-top: 8px; }
+  .rodape-biblioteca .origem { flex: 1; font-size: 11px; color: var(--apagado); }
+  .rodape-biblioteca .origem.aviso { color: #ffb4a8; }
+  .rodape-biblioteca button.icone { padding: 4px; }
+  .rodape-biblioteca svg.i { width: 16px; height: 16px; }
+  .miniatura { width: 32px; height: 32px; background: #000; border-radius: 4px; }
+
+  /* personagens */
+  #refs select { width: 100%; margin-bottom: 10px; }
+  .rosa { display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(3, 30px); gap: 3px;
+    justify-content: center; margin: 2px 0 6px; }
+  .rosa button { padding: 0; border-radius: 50%; color: var(--fraco); font-size: 14px; }
+  .rosa button[aria-pressed="true"] { background: var(--ativo); border-color: var(--azul); color: #fff; }
+  .rosa .centro { display: flex; align-items: center; justify-content: center; color: var(--apagado); font-size: 10px; }
+  .rosa-legenda { text-align: center; color: var(--fraco); font-size: 12px; margin-bottom: 10px; }
+  .linha-botoes { display: flex; gap: 6px; }
+  .linha-botoes .primario { flex: 1; }
+  #refs .vazio { color: var(--apagado); font-size: 12px; margin: 0; }
+
+  /* ---------- vista ---------- */
+  main { flex: 1; position: relative; min-width: 0; }
+  #vista { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .barra { position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 4px; padding: 4px;
+    background: rgba(20,20,20,.92); border: 1px solid var(--borda-forte); border-radius: 10px; backdrop-filter: blur(4px); }
+  .segmentos { display: flex; background: #0c0c0c; border-radius: 7px; padding: 2px; }
+  .segmentos button { border: 0; background: transparent; padding: 5px 11px; border-radius: 5px; color: var(--fraco); font-size: 12px; }
+  .segmentos button:hover:not(:disabled) { background: transparent; color: var(--texto); }
+  .segmentos button[aria-pressed="true"] { background: var(--ativo); color: #fff; }
+  .separador { width: 1px; height: 22px; background: var(--borda-forte); margin: 0 4px; }
+  .ferramenta { padding: 6px; border-radius: 7px; border-color: transparent; background: transparent; color: var(--apagado); }
+  .ferramenta:hover:not(:disabled) { background: var(--botao-hover); color: var(--fraco); }
+  .ferramenta[aria-pressed="true"] { background: #4a4220; color: #ffd54a; }
+  .ferramenta .amostra { display: block; width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(255,255,255,.35); }
+  .popover { position: absolute; z-index: 4; width: 240px; padding: 12px; background: #181818; border: 1px solid var(--borda-forte);
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.6); display: flex; flex-direction: column; gap: 8px; }
+  .popover[hidden] { display: none; }
+  .pop-titulo { font-weight: 600; }
+  .pop-sub { color: var(--fraco); font-size: 11px; font-weight: 400; }
+  .cor-linha { display: flex; gap: 8px; align-items: center; }
+  .cor-linha input[type=color] { width: 44px; height: 32px; padding: 0; border: 1px solid var(--borda-forte); border-radius: 6px; background: none; cursor: pointer; }
+  .cor-linha input[type=text] { flex: 1; font-family: ui-monospace, monospace; text-transform: lowercase; }
+  .cor-linha input.invalido { border-color: #ff8a80; }
+  .cores-cena { display: flex; flex-wrap: wrap; gap: 5px; }
+  .amostra-botao { width: 22px; height: 22px; padding: 0; border-radius: 5px; border: 1px solid rgba(255,255,255,.3); }
+  .popover button.largo { width: 100%; }
+  .lista-filtro { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow-y: auto; }
+  .linha-filtro { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; cursor: pointer; }
+  .linha-filtro:hover { background: var(--botao-hover); }
+  .linha-filtro .amostra { width: 16px; height: 16px; border-radius: 4px; border: 1px solid rgba(255,255,255,.3); }
+  .linha-filtro .nome { flex: 1; font-family: ui-monospace, monospace; font-size: 12px; }
+  .linha-filtro .qt { color: var(--fraco); font-size: 12px; }
+  .lista-filtro .vazio { color: var(--apagado); font-size: 12px; margin: 0; }
+  .alternar { position: relative; display: inline-flex; padding: 6px; border-radius: 7px; color: var(--apagado); cursor: pointer; }
+  .alternar input { position: absolute; opacity: 0; pointer-events: none; }
+  .alternar:hover { background: var(--botao-hover); color: var(--fraco); }
+  .alternar:has(input:checked) { color: #fff; background: var(--ativo); }
+  .alternar:has(input:focus-visible) { outline: 2px solid var(--azul); }
+  .aviso { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); padding: 7px 14px; border-radius: 8px;
+    background: #1d1d1d; border: 1px solid var(--borda-forte); color: var(--texto); font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+  .aviso[hidden] { display: none; }
+  #dialogo-cenas { width: min(420px, calc(100vw - 32px)); }
+  #dialogo-cenas h2 { margin: 0 0 4px; font-size: 15px; }
+  .origem-cenas { margin: 0 0 12px; color: var(--fraco); font-size: 12px; }
+  .lista-cenas { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; margin-bottom: 8px; }
+  .lista-cenas .cena { justify-content: space-between; text-align: left; padding: 8px 10px; }
+  .lista-cenas .cena.atual { border-color: var(--azul); }
+  .lista-cenas .quando { color: var(--fraco); font-size: 12px; }
+  .lista-cenas .vazio { color: var(--apagado); font-size: 12px; margin: 4px 0; }
+  #status { position: absolute; left: 12px; bottom: 9px; color: #666; font: 12px ui-monospace, monospace; pointer-events: none; }
+
+  .menu { position: absolute; z-index: 2; min-width: 200px; padding: 4px; background: #181818;
+    border: 1px solid var(--borda-forte); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.6); display: flex; flex-direction: column; }
+  .menu[hidden] { display: none; }
+  .menu button { background: none; border: 0; justify-content: flex-start; padding: 7px 10px; border-radius: 5px; }
+  .menu button:hover:not(:disabled) { background: var(--botao-hover); }
+  .dica-menu { max-width: 220px; padding: 0 10px 6px; font-size: 11px; line-height: 1.35; color: var(--fraco); }
+  .grupo-sub { position: relative; }
+  .grupo-sub .abre-sub { width: 100%; justify-content: space-between; }
+  .grupo-sub .seta { color: var(--fraco); }
+  .submenu { display: none; position: absolute; left: calc(100% + 2px); top: -4px; min-width: 120px; padding: 4px;
+    background: #181818; border: 1px solid var(--borda-forte); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.6); flex-direction: column; }
+  .sub-esquerda .submenu { left: auto; right: calc(100% + 2px); }
+  .grupo-sub:hover .submenu, .grupo-sub.aberto .submenu { display: flex; }
+  .grupo-sub:hover > .abre-sub, .grupo-sub.aberto > .abre-sub { background: var(--botao-hover); }
+  .titulo-sub { padding: 4px 10px 6px; font-size: 11px; color: var(--fraco); text-transform: uppercase; letter-spacing: .07em; }
+  .eixo-giro { align-items: center; }
+  .rotulo-giro { display: inline-flex; padding: 0 4px 0 6px; color: var(--fraco); }
+  .rotulo-giro svg { width: 16px; height: 16px; }
+  .eixo-giro button { padding: 5px 9px; }
+
+  dialog { background: #181818; color: var(--texto); border: 1px solid var(--borda-forte); border-radius: 12px; padding: 18px; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  #dialogo-salvar { width: 300px; }
+  #dialogo-salvar form { display: flex; flex-direction: column; gap: 10px; }
+  #dialogo-salvar label { font-weight: 600; }
+  .dialogo-botoes { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+  #ajuda { width: min(560px, calc(100vw - 32px)); }
+  #ajuda h2 { margin: 0 0 14px; font-size: 15px; }
+  #ajuda h3 { margin: 16px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--fraco); }
+  #ajuda dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+  #ajuda dt { color: var(--texto); white-space: nowrap; }
+  #ajuda dd { margin: 0; color: var(--fraco); }
+  kbd { background: #242424; border: 1px solid #383838; border-bottom-width: 2px; border-radius: 4px; padding: 0 5px;
+    font: 11px ui-monospace, monospace; color: var(--texto); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-ima" viewBox="0 0 24 24"><path d="M6 4v8a6 6 0 0 0 12 0V4"/><path d="M6 4h3.5v8a2.5 2.5 0 0 0 5 0V4H18"/><path d="M6 8h3.5M14.5 8H18"/></symbol>
+  <symbol id="i-grade-ima" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM12 4v16M4 12h16"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></symbol>
+  <symbol id="i-angulo" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M4 20 16 8"/><path d="M10 20a6 6 0 0 0-1.8-4.2"/><circle cx="18" cy="6" r="2.2"/></symbol>
+  <symbol id="i-grade" viewBox="0 0 24 24"><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></symbol>
+  <symbol id="i-importar" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M4 15v4h16v-4"/></symbol>
+  <symbol id="i-exportar" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v4h16v-4"/></symbol>
+  <symbol id="i-lixo" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-ajuda" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.6v.6"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></symbol>
+  <symbol id="i-separar" viewBox="0 0 24 24"><path d="M9 7H7a5 5 0 0 0 0 10h2M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M12 4v3M12 17v3"/></symbol>
+  <symbol id="i-salvar" viewBox="0 0 24 24"><path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></symbol>
+  <symbol id="i-pasta" viewBox="0 0 24 24"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-nova" viewBox="0 0 24 24"><path d="M6 3h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4M11.5 11v6M8.5 14h6"/></symbol>
+  <symbol id="i-filtro" viewBox="0 0 24 24"><path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/></symbol>
+  <symbol id="i-regua" viewBox="0 0 24 24"><path d="M3.5 15.5 15.5 3.5l5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2M14.5 4.5l1.5 1.5"/></symbol>
+  <symbol id="i-girar" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4.5h-4.5"/></symbol>
+  <symbol id="i-duplicar" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
+</svg>
+
+<aside id="painel">
+  <div class="topo">
+    <h1><small>Esquadro</small><span id="nome-cena">Sem título</span><span id="cena-suja" class="suja" title="Mudanças não salvas" hidden>•</span></h1>
+    <button class="icone" id="salvar-cena" title="Salvar cena (Ctrl+S; Ctrl+Shift+S salva como)" aria-label="Salvar cena"><svg class="i"><use href="#i-salvar"/></svg></button>
+    <button class="icone" id="carregar-cena" title="Carregar cena (Ctrl+O)" aria-label="Carregar cena"><svg class="i"><use href="#i-pasta"/></svg></button>
+    <button class="icone" id="limpar" title="Nova cena (limpa tudo; Ctrl+Z desfaz)" aria-label="Nova cena"><svg class="i"><use href="#i-nova"/></svg></button>
+    <button class="icone" id="abrir-ajuda" title="Atalhos e comandos (?)" aria-label="Atalhos e comandos"><svg class="i"><use href="#i-ajuda"/></svg></button>
+  </div>
+  <input id="arquivo" type="file" accept=".json,application/json" hidden>
+
+  <div class="rolagem">
+    <details open data-secao="formas">
+      <summary>Formas</summary>
+      <div class="conteudo">
+        <div class="formas">
+          <button data-lados="3" title="Triângulo"><svg viewBox="0 0 24 24"><polygon points="4.2,17 12,3.5 19.8,17"/></svg>Triângulo</button>
+          <button data-lados="4" title="Quadrado"><svg viewBox="0 0 24 24"><polygon points="5.6,18.9 5.6,6.1 18.4,6.1 18.4,18.9"/></svg>Quadrado</button>
+          <button data-lados="5" title="Pentágono"><svg viewBox="0 0 24 24"><polygon points="6.7,19.8 3.4,9.7 12,3.5 20.6,9.7 17.3,19.8"/></svg>Pentágono</button>
+          <button data-lados="6" title="Hexágono"><svg viewBox="0 0 24 24"><polygon points="7.5,20.3 3,12.5 7.5,4.7 16.5,4.7 21,12.5 16.5,20.3"/></svg>Hexágono</button>
+          <button data-lados="8" title="Octógono"><svg viewBox="0 0 24 24"><polygon points="8.6,20.8 3.7,15.9 3.7,9.1 8.6,4.2 15.4,4.2 20.3,9.1 20.3,15.9 15.4,20.8"/></svg>Octógono</button>
+          <button data-lados="0" title="Círculo"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Círculo</button>
+        </div>
+        <div class="outro">
+          <label for="lados">Outro:</label>
+          <input id="lados" type="number" min="3" max="48" step="1" value="7" aria-label="Número de lados">
+          <span>lados</span>
+          <button id="criar-poligono" title="Criar polígono com esse número de lados">Criar</button>
+        </div>
+      </div>
+    </details>
+
+    <details open data-secao="selecao">
+      <summary>Seleção</summary>
+      <div class="conteudo">
+        <p class="sem-selecao" id="sem-selecao">Clique numa forma para editá-la.</p>
+        <section id="props" hidden>
+          <div id="info"></div>
+          <div id="info-extra"></div>
+          <div class="eixos">
+            <span class="rotulo">Posição</span>
+            <label class="campo" title="Posição X"><span>X</span><input id="p-x" type="number" step="1" aria-label="Posição X"></label>
+            <label class="campo" title="Posição Y"><span>Y</span><input id="p-y" type="number" step="1" aria-label="Posição Y"></label>
+            <label class="campo" title="Altura (Z)"><span>Z</span><input id="p-z" type="number" step="1" min="0" aria-label="Altura Z"></label>
+          </div>
+          <div class="eixos">
+            <span class="rotulo">Tamanho</span>
+            <label class="campo" title="Largura em X"><span>X</span><input id="p-w" type="number" step="1" min="1" aria-label="Largura X"></label>
+            <label class="campo" title="Largura em Y"><span>Y</span><input id="p-h" type="number" step="1" min="1" aria-label="Largura Y"></label>
+            <label class="campo" title="Espessura em Z"><span>Z</span><input id="p-e" type="number" step="1" min="0" aria-label="Espessura Z"></label>
+          </div>
+          <div class="acoes">
+            <button id="separar" title="Tirar esta forma do grupo"><svg class="i"><use href="#i-separar"/></svg>Separar</button>
+            <button id="duplicar" title="Duplicar (Ctrl+D)"><svg class="i"><use href="#i-duplicar"/></svg>Duplicar</button>
+            <button id="excluir" class="perigo" title="Excluir (Del)"><svg class="i"><use href="#i-lixo"/></svg>Excluir</button>
+          </div>
+        </section>
+      </div>
+    </details>
+
+    <details open data-secao="biblioteca">
+      <summary>Biblioteca <span class="contador" id="contador-biblioteca"></span></summary>
+      <div class="conteudo">
+        <div id="biblioteca" class="biblioteca"></div>
+        <div class="rodape-biblioteca">
+          <span id="origem-biblioteca" class="origem"></span>
+          <button class="icone" id="importar-biblioteca" title="Importar biblioteca (JSON)" aria-label="Importar biblioteca"><svg class="i"><use href="#i-importar"/></svg></button>
+          <button class="icone" id="exportar-biblioteca" title="Exportar biblioteca (JSON)" aria-label="Exportar biblioteca"><svg class="i"><use href="#i-exportar"/></svg></button>
+          <input id="arquivo-biblioteca" type="file" accept=".json,application/json" hidden>
+        </div>
+      </div>
+    </details>
+
+    <details data-secao="personagens" hidden>
+      <summary>Personagens</summary>
+      <div class="conteudo" id="refs">
+        <select id="ref-conjunto" aria-label="Personagem"></select>
+        <div class="rosa" id="ref-dir" role="radiogroup" aria-label="Virado para"></div>
+        <div class="rosa-legenda" id="ref-dir-nome"></div>
+        <div class="linha-botoes">
+          <button class="primario" id="ref-inserir">Inserir</button>
+          <button id="ref-limpar" title="Remover todos os personagens">Remover todos</button>
+        </div>
+      </div>
+    </details>
+  </div>
+  <div class="borda-painel" id="borda-painel" role="separator" aria-orientation="vertical" aria-label="Largura do painel" tabindex="0" title="Arraste para mudar a largura (duplo clique volta ao padrão)"></div>
+</aside>
+
+<main>
+  <canvas id="vista"></canvas>
+  <div class="barra" role="toolbar" aria-label="Vista e assistentes">
+    <div class="segmentos" role="group" aria-label="Vista">
+      <button id="vista-jogo" title="Oblíqua do jogo">Jogo</button>
+      <button id="vista-topo" title="De cima, como a planta">Topo</button>
+      <button id="vista-iso" title="Isométrica (giro 45°, inclinação 35°)">Iso</button>
+    </div>
+    <span class="separador"></span>
+    <div class="segmentos eixo-giro" role="group" aria-label="Eixo de giro" title="Eixo usado em Rotacionar (botão direito ou R)">
+      <span class="rotulo-giro"><svg class="i"><use href="#i-girar"/></svg></span>
+      <button id="giro-x" title="Girar em torno do eixo X">X</button>
+      <button id="giro-y" title="Girar em torno do eixo Y">Y</button>
+      <button id="giro-z" title="Girar em torno do eixo Z">Z</button>
+    </div>
+    <span class="separador"></span>
+    <button class="ferramenta" id="ferramenta-cor" title="Cor das formas selecionadas" aria-label="Cor"><span class="amostra" id="amostra-cor"></span></button>
+    <button class="ferramenta" id="ferramenta-filtro" aria-pressed="false" title="Filtrar por cor: esconder e mostrar formas" aria-label="Filtrar por cor"><svg class="i"><use href="#i-filtro"/></svg></button>
+    <button class="ferramenta" id="ferramenta-regua" aria-pressed="false" title="Régua: clique em dois vértices para medir a distância (M)" aria-label="Régua"><svg class="i"><use href="#i-regua"/></svg></button>
+    <span class="separador"></span>
+    <label class="alternar" title="Encaixar vértices entre formas"><input id="op-vertices" type="checkbox"><svg class="i"><use href="#i-ima"/></svg></label>
+    <label class="alternar" title="Encaixar na grade (vértices e meio dos lados)"><input id="op-grade" type="checkbox"><svg class="i"><use href="#i-grade-ima"/></svg></label>
+    <label class="alternar" title="Travar o giro em múltiplos de 45°"><input id="op-angulos" type="checkbox"><svg class="i"><use href="#i-angulo"/></svg></label>
+    <label class="alternar" title="Mostrar a grade (tile de 64 px)"><input id="op-mostrar-grade" type="checkbox"><svg class="i"><use href="#i-grade"/></svg></label>
+  </div>
+  <div id="menu" class="menu" role="menu" hidden></div>
+  <div id="pop-cor" class="popover" role="dialog" aria-label="Cor" hidden>
+    <div class="pop-titulo">Cor <span id="cor-alvo" class="pop-sub"></span></div>
+    <div class="cor-linha">
+      <input type="color" id="cor-seletor" value="#d4d4d4" aria-label="Paleta de cores">
+      <input type="text" id="cor-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Cor em hexadecimal" placeholder="#rrggbb">
+    </div>
+    <div class="pop-sub" id="cores-cena-titulo">Cores da cena</div>
+    <div class="cores-cena" id="cores-cena"></div>
+    <button id="cor-padrao" class="largo">Sem cor (cinza-claro)</button>
+  </div>
+  <div id="pop-filtro" class="popover" role="dialog" aria-label="Filtrar por cor" hidden>
+    <div class="pop-titulo">Filtrar por cor</div>
+    <div id="lista-filtro" class="lista-filtro"></div>
+    <button id="filtro-todas" class="largo">Mostrar todas</button>
+  </div>
+  <div id="status"></div>
+  <div id="aviso" class="aviso" role="status" hidden></div>
+</main>
+
+<dialog id="dialogo-salvar">
+  <form method="dialog">
+    <label for="nome-salvo" id="titulo-nome">Salvar na biblioteca</label>
+    <input id="nome-salvo" type="text" maxlength="60" required autocomplete="off" placeholder="Nome da forma">
+    <div class="dialogo-botoes">
+      <button value="cancelar" formnovalidate>Cancelar</button>
+      <button value="salvar" class="primario">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogo-cenas">
+  <form method="dialog">
+    <h2>Carregar cena</h2>
+    <p class="origem-cenas">Cenas salvas em <code>blocos/cenas</code></p>
+    <div id="lista-cenas" class="lista-cenas"></div>
+    <div class="dialogo-botoes">
+      <button type="button" id="abrir-do-computador">Abrir arquivo do computador…</button>
+      <button value="cancelar">Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="ajuda">
+  <form method="dialog">
+    <h2>Atalhos e comandos</h2>
+    <h3>Mouse</h3>
+    <dl>
+      <dt>Clique</dt><dd>Marca a forma e seleciona o grupo dela</dd>
+      <dt><kbd>Ctrl</kbd> + clique</dt><dd>Marca várias formas</dd>
+      <dt>Arrastar forma</dt><dd>Move; vértices próximos se encaixam</dd>
+      <dt><kbd>Shift</kbd> + arrastar</dt><dd>Empilha (o encaixe prefere subir)</dd>
+      <dt>Mouse sobre um vértice</dt><dd>Destaca o vértice</dd>
+      <dt>Duplo clique num vértice</dt><dd>Prende o vértice ao cursor para arrastá-lo (Shift sobe e desce; encaixa em outros vértices); clique solta, Esc cancela</dd>
+      <dt><kbd>Shift</kbd> + clique num vértice</dt><dd>Marca vértices de uma forma; com 3 ou mais, a área entre eles pode ser recortada</dd>
+      <dt>Alças brancas</dt><dd>Quadrados esticam em X e Y; o círculo dá espessura</dd>
+      <dt>Botão da roda</dt><dd>Segure e arraste para girar a vista</dd>
+      <dt>Roda</dt><dd>Zoom</dd>
+      <dt>Arrastar o fundo</dt><dd>Move a vista (também com o botão direito)</dd>
+      <dt>W A S D</dt><dd>Move continuamente a vista; não atua ao digitar nos campos</dd>
+      <dt>Arrastar do painel</dt><dd>Solte uma forma ou peça da biblioteca sobre o chão para inseri-la nesse ponto</dd>
+      <dt>Botão direito</dt><dd>Menu: copiar, duplicar, desacoplar, salvar, mesclar, recortar área, rotacionar (90°, 180°, 270°), definir cor, excluir; no fundo, colar e recentralizar</dd>
+    </dl>
+    <h3>Teclado</h3>
+    <dl>
+      <dt><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></dt><dd>Move 1 px (com <kbd>Shift</kbd>, 8 px)</dd>
+      <dt><kbd>PgUp</kbd> <kbd>PgDn</kbd></dt><dd>Sobe e desce</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>C</kbd> / <kbd>V</kbd></dt><dd>Copia e cola no cursor</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>D</kbd></dt><dd>Duplica</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>Z</kbd></dt><dd>Desfaz</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>S</kbd></dt><dd>Salva a cena (com <kbd>Shift</kbd>, salva como)</dd>
+      <dt><kbd>Ctrl</kbd> <kbd>O</kbd></dt><dd>Carrega uma cena</dd>
+      <dt><kbd>R</kbd> / <kbd>Shift</kbd> <kbd>R</kbd></dt><dd>Gira 90° / 270° no eixo escolhido na barra</dd>
+      <dt><kbd>M</kbd></dt><dd>Liga e desliga a régua (clique em dois vértices para medir; <kbd>Esc</kbd> limpa a medida)</dd>
+      <dt><kbd>Del</kbd></dt><dd>Exclui</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Desmarca os vértices; de novo, limpa a seleção</dd>
+      <dt><kbd>?</kbd></dt><dd>Abre esta ajuda</dd>
+    </dl>
+    <div class="dialogo-botoes"><button value="fechar" class="primario">Entendi</button></div>
+  </form>
+</dialog>
+
+<script src="geometria.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>
