@@ -330,4 +330,45 @@ assert.ok(comVizinha && comVizinha.furos.length === 1 && comVizinha.h === 128, '
 assert.strictEqual(G.moverVertice(janela, 0, { x: 0, y: 0, z: 0 }), null);
 assert.strictEqual(G.recortar(janela, [0, 1, 2]), null);
 
+// Vazar pela face: a peça marcada é o molde, e a parede NÃO marcada recebe o vão.
+{
+  const parede = { ...nova(4), x: 0, y: 0, z: 0, w: 240, h: 8, espessura: 160, cor: '#8585cc' };
+  const molde = { ...nova(4), x: 80, y: 8, z: 50, w: 40, h: 32, espessura: 60, cor: '#c82030' };
+  const originais = JSON.stringify([parede, molde]);
+  const vao = G.vazarPelaFace(molde, parede);
+  assert.ok(vao && vao.furos.length === 1, 'o exemplo da parede ganha um vão');
+  assert.equal(vao.eixo, 'y');
+  assert.equal(vao.h, 8, 'atravessa toda a espessura da parede');
+  assert.equal(vao.cor, parede.cor);
+  assert.equal(vao.id, parede.id);
+  assert.equal(JSON.stringify([parede, molde]), originais, 'geometria pura: não modifica as entradas');
+  const furo = G.prisma(vao).furos[0];
+  assert.deepEqual([...new Set(furo.a.map(p => p.x))].sort((a,b)=>a-b), [80,120]);
+  assert.deepEqual([...new Set(furo.a.map(p => p.z))].sort((a,b)=>a-b), [50,110]);
+  assert.ok(furo.a.every(p => p.y === 0) && furo.b.every(p => p.y === 8));
+  assert.equal(G.dentroForma([100,-80],vao,{ ax:[1,0,0],ay:[0,0,-1],d:[0,1,0] }),false,'clique através do vão não pega parede');
+  assert.equal(G.dentroForma([20,-80],vao,{ ax:[1,0,0],ay:[0,0,-1],d:[0,1,0] }),true);
+  assert.equal(G.vazarPelaFace(molde, vao), null, 'não duplica o mesmo vão');
+  assert.equal(G.vazarPelaFace({...molde,x:100},vao),null,'rejeita sobreposição com vão anterior');
+  const dois = G.vazarPelaFace({...molde,x:160},vao);
+  assert.equal(dois.furos.length,2,'acrescenta um segundo vão independente');
+  assert.equal(G.vazarPelaFace({...molde,x:0},parede),null,'não toca borda externa');
+  assert.equal(G.vazarPelaFace({...molde,y:8.5},parede),null,'sem contato');
+  assert.equal(G.vazarPelaFace({...molde,y:7},parede),null,'penetração não é apoio de face');
+  assert.equal(G.vazarPelaFace({...molde,x:240},parede),null,'aresta/ponto não bastam');
+  assert.equal(G.vazarPelaFace(molde,molde),null);
+  assert.ok(G.vazarPelaFace({...molde,y:-32},parede),'apoio do outro lado da parede');
+  for(const eixo of ['x','y','z']) {
+    const giradas = G.rotacionarGrupo([parede,molde],eixo,90);
+    assert.ok(G.vazarPelaFace(giradas[1],giradas[0]),`recorte após giro no eixo ${eixo}`);
+  }
+  for(const lados of [3,5,6,0]) {
+    const topo = { ...parede, w:240,h:240,espessura:8 };
+    const p = {...nova(lados),x:60,y:70,z:8,w:50,h:40,espessura:32};
+    const resultado = G.vazarPelaFace(p,topo);
+    assert.ok(resultado,`molde ${lados || 'circular'}`);
+    assert.equal(resultado.furos[0].length,lados || G.SEGMENTOS_CIRCULO,'contorno real da face');
+  }
+  assert.deepEqual(G.prisma(JSON.parse(JSON.stringify(vao))),G.prisma(vao),'persistência preserva o vão');
+}
 console.log('geometria: todos os testes passaram');

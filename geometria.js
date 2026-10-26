@@ -520,6 +520,47 @@
     return mesclarPorFace(a, b);
   }
 
+  // Vão passante a partir da face de contato de outro sólido. A parede deve ser um
+  // prisma no eixo normal à face (caixas valem nos três eixos). Não usa a projeção
+  // da câmera: o contato e o contorno são verificados em coordenadas do mundo.
+  function vazarPelaFace(molde, alvo) {
+    if (molde === alvo || alvo.malha) return null;
+    const m = molde.malha ? malhaMundo(molde) : malhaDoPrisma(molde);
+    if (m.aberta || (!molde.malha && furosUV(molde).length)) return null;
+    const tolerancia = 1e-4;
+    const sobreAresta = (p, a, b) => {
+      const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+      if (!l2) return Math.hypot(p[0] - a[0], p[1] - a[1]) <= tolerancia;
+      const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2));
+      return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy) <= tolerancia;
+    };
+    const toca = (a, b) => a.some((p, i) => b.some((q, j) =>
+      sobreAresta(p, q, b[(j + 1) % b.length]) || sobreAresta(q, p, a[(i + 1) % a.length]) ||
+      seCruzam(p, a[(i + 1) % a.length], q, b[(j + 1) % b.length])));
+    for (const A of ['x', 'y', 'z']) {
+      const sec = secaoEm(alvo, A);
+      const [pa, da] = AO_LONGO[A];
+      if (!sec || alvo[da] <= tolerancia) continue;
+      const [[u], [v]] = PLANO[A];
+      const min = Math.min(...m.v.map(p => p[pa])), max = Math.max(...m.v.map(p => p[pa]));
+      // O molde fica do lado de fora; simples sobreposição na tela ou penetração não basta.
+      const planos = [];
+      if (iguais(max, alvo[pa]) && min < max - tolerancia) planos.push(alvo[pa]);
+      if (iguais(min, alvo[pa] + alvo[da]) && max > min + tolerancia) planos.push(alvo[pa] + alvo[da]);
+      for (const plano of planos) for (const face of m.faces) {
+        const pontos = face.map(i => m.v[i]);
+        if (!pontos.every(p => iguais(p[pa], plano))) continue;
+        const corte = semAlinhados(pontos.map(p => [p[u], p[v]]));
+        if (corte.length < 3 || Math.abs(area(corte)) <= tolerancia || !simples(corte)) continue;
+        // Vão estritamente interno: não produz laços abertos ou interseções inválidas.
+        if (!corte.every(p => dentro(p, sec[0])) || toca(corte, sec[0])) continue;
+        if (sec.slice(1).some(h => toca(corte, h) || corte.some(p => dentro(p, h)) || h.some(p => dentro(p, corte)))) continue;
+        return formaNoEixo(alvo, A, { contorno: sec[0], furos: [...sec.slice(1), corte] }, alvo[pa], alvo[da]);
+      }
+    }
+    return null;
+  }
+
   // ---------- recortar ----------
   // Índices no contorno dos vértices de base escolhidos (sem repetir), na
   // ordem do contorno. No círculo, os 4 extremos caem em pontos do contorno.
@@ -890,7 +931,7 @@
     buscarEncaixe, encaixeGrade, ordemDesenho, envoltoria, silhueta, dentro,
     eixoDe, contornoUV, prisma, rotacionar, rotacionarGrupo, uniaoSecoes,
     malhaMundo, malhaDoPrisma, moverVertice, facesVisiveis, normal3, mesclarPorFace,
-    area, normalExterna, faces, dentroForma, uniaoContornos, mesclar, mesclarVarias, areaRecorte, recortar,
+    area, normalExterna, faces, dentroForma, uniaoContornos, mesclar, mesclarVarias, areaRecorte, recortar, vazarPelaFace,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.Geometria = api;

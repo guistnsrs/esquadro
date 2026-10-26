@@ -19,6 +19,7 @@ Baixe a pasta e abra `index.html` no navegador (duplo clique basta). Tudo é HTM
 - **Seleção:** clique marca a forma (em azul), `Ctrl`+clique marca várias; o grupo inteiro vem junto, ou só as peças, com "Selecionar desacoplado".
 - **Mesclar:** formas que se encostam viram uma só, e os vértices entre elas somem. Peças que fecham uma volta (paredes em torno de uma janela) viram uma parede com vão.
 - **Recortar área:** com `Shift`, marque vértices de uma forma; a área entre eles (em vermelho) pode ser recortada.
+- **Vazar pela face:** encoste uma face de um bloco ou volume na face de uma parede e selecione o bloco que servirá de molde. Use **Vazar pela face** no botão direito ou na barra superior para abrir um vão no formato exato dessa face, atravessando a parede inteira. A parede conserva sua cor, o molde é preservado e fica selecionado de forma desacoplada: mova-o para ver a abertura. `Ctrl+Z` desfaz. Se o molde encostar em mais de uma parede compatível, clique naquela que deve receber o vão; `Esc` cancela essa escolha.
 - **Rotacionar:** 90°, 180° e 270° em X, Y ou Z; um prisma deitado de lado vira rampa ou telhado.
 - **Formas livres em 3D:** duplo clique num vértice o prende ao cursor; ele pode ir a qualquer ponto, inclusive a um vértice de outra altura, e a forma se deforma (pirâmides, telhados inclinados).
 - **Cor e filtro:** pinte as formas com qualquer cor (paleta do sistema ou hexadecimal) e esconda ou mostre formas por cor.
@@ -27,6 +28,8 @@ Baixe a pasta e abra `index.html` no navegador (duplo clique basta). Tudo é HTM
 - **Cenas:** `Ctrl+S` salva e `Ctrl+O` carrega (no Chrome e no Edge, `Ctrl+S` grava de novo no mesmo arquivo).
 
 Na primeira visita, um **guia passo a passo** destaca cada parte da tela e explica o que ela faz; ele volta pelo botão de bússola no topo do painel. A tecla `?` mostra todos os atalhos.
+
+O comando **Vazar pela face** reconhece contato real em 3D, em qualquer vista da câmera. A parede deve ser um prisma de seção constante na direção do corte (X, Y ou Z; uma caixa serve nas três). O contorno do molde precisa ficar inteiramente dentro da face, sem tocar a borda ou outro vão. São aceitos moldes poligonais, circulares (com a mesma aproximação do editor) e faces planas de malhas. Paredes deformadas em malha, cortes inclinados e recortes que abram a borda ainda não são suportados. Sem contato compatível, o comando fica desabilitado. Vãos já existentes são preservados.
 
 ## Arquivos
 
