@@ -537,6 +537,48 @@
     const toca = (a, b) => a.some((p, i) => b.some((q, j) =>
       sobreAresta(p, q, b[(j + 1) % b.length]) || sobreAresta(q, p, a[(i + 1) % a.length]) ||
       seCruzam(p, a[(i + 1) % a.length], q, b[(j + 1) % b.length])));
+    // Diferença entre a seção da parede e o molde. Cortes internos viram vãos;
+    // quando o molde alcança uma aresta externa, costura o trecho recortado à
+    // borda para formar um entalhe aberto (uma seção côncava simples).
+    function recortarBorda(borda, corte) {
+      const dentroFechado = (p, poli) => dentro(p, poli) || poli.some((a, i) => sobreAresta(p, a, poli[(i + 1) % poli.length]));
+      const partes = (poli, outro, manterDentro) => {
+        const saida = [];
+        for (let i = 0; i < poli.length; i++) {
+          const a = poli[i], b = poli[(i + 1) % poli.length], ts = [0, 1];
+          for (let j = 0; j < outro.length; j++) {
+            const c = outro[j], d = outro[(j + 1) % outro.length];
+            const den = (b[0]-a[0])*(d[1]-c[1])-(b[1]-a[1])*(d[0]-c[0]);
+            if (Math.abs(den) < 1e-10) continue;
+            const t = ((c[0]-a[0])*(d[1]-c[1])-(c[1]-a[1])*(d[0]-c[0]))/den;
+            const s = ((c[0]-a[0])*(b[1]-a[1])-(c[1]-a[1])*(b[0]-a[0]))/den;
+            if (t > 1e-9 && t < 1-1e-9 && s >= -1e-9 && s <= 1+1e-9) ts.push(t);
+          }
+          ts.sort((x,y)=>x-y);
+          for(let k=0;k<ts.length-1;k++) {
+            const t=ts[k], q=ts[k+1], mid=[a[0]+(b[0]-a[0])*(t+q)/2,a[1]+(b[1]-a[1])*(t+q)/2];
+            const estaDentro=manterDentro && poli===corte ? dentro(mid,outro) : dentroFechado(mid,outro);
+            if(estaDentro===manterDentro) saida.push([[limpa(a[0]+(b[0]-a[0])*t),limpa(a[1]+(b[1]-a[1])*t)],[limpa(a[0]+(b[0]-a[0])*q),limpa(a[1]+(b[1]-a[1])*q)]]);
+          }
+        }
+        return saida;
+      };
+      const segmentos=[...partes(borda,corte,false),...partes(corte,borda,true)];
+      const loops=[];
+      while(segmentos.length) {
+        const primeiro=segmentos.pop(), loop=[primeiro[0],primeiro[1]];
+        while(Math.hypot(loop[loop.length-1][0]-loop[0][0],loop[loop.length-1][1]-loop[0][1])>tolerancia) {
+          const fim=loop[loop.length-1], idx=segmentos.findIndex(s=>Math.hypot(s[0][0]-fim[0],s[0][1]-fim[1])<=tolerancia);
+          if(idx<0) return null;
+          const s=segmentos.splice(idx,1)[0]; loop.push(s[1]);
+          if(loop.length>1000) return null;
+        }
+        loop.pop();
+        const limpo=semAlinhados(loop);
+        if(limpo.length>=3 && Math.abs(area(limpo))>tolerancia) loops.push(limpo);
+      }
+      return loops.length===1 && simples(loops[0]) ? loops[0] : null;
+    }
     for (const A of ['x', 'y', 'z']) {
       const sec = secaoEm(alvo, A);
       const [pa, da] = AO_LONGO[A];
@@ -552,10 +594,20 @@
         if (!pontos.every(p => iguais(p[pa], plano))) continue;
         const corte = semAlinhados(pontos.map(p => [p[u], p[v]]));
         if (corte.length < 3 || Math.abs(area(corte)) <= tolerancia || !simples(corte)) continue;
-        // Vão estritamente interno: não produz laços abertos ou interseções inválidas.
-        if (!corte.every(p => dentro(p, sec[0])) || toca(corte, sec[0])) continue;
+        const dentroParede=corte.every(p => dentro(p,sec[0]));
+        const dentroMolde=sec[0].every(p => dentro(p,corte));
+        const encosta=toca(corte,sec[0]);
+        let contorno=sec[0], furos=[...sec.slice(1),corte];
+        if (!dentroParede || encosta) {
+          // Um molde que cobre a parede toda a destruiria; sem interseção não há corte.
+          const intersecao = corte.some(p=>dentro(p,sec[0])) || sec[0].some(p=>dentro(p,corte)) || corte.some((p,i)=>sec[0].some((q,j)=>seCruzam(p,corte[(i+1)%corte.length],q,sec[0][(j+1)%sec[0].length])));
+          if (dentroMolde || !intersecao || !encosta || sec.length>1) continue;
+          contorno=recortarBorda(sec[0],corte);
+          if(!contorno || Math.abs(area(contorno)) >= Math.abs(area(sec[0]))-tolerancia) continue;
+          furos=[];
+        }
         if (sec.slice(1).some(h => toca(corte, h) || corte.some(p => dentro(p, h)) || h.some(p => dentro(p, corte)))) continue;
-        return formaNoEixo(alvo, A, { contorno: sec[0], furos: [...sec.slice(1), corte] }, alvo[pa], alvo[da]);
+        return formaNoEixo(alvo, A, { contorno, furos }, alvo[pa], alvo[da]);
       }
     }
     return null;
@@ -936,3 +988,4 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.Geometria = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
+
