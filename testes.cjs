@@ -349,10 +349,13 @@ assert.strictEqual(G.recortar(janela, [0, 1, 2]), null);
   assert.equal(G.dentroForma([100,-80],vao,{ ax:[1,0,0],ay:[0,0,-1],d:[0,1,0] }),false,'clique através do vão não pega parede');
   assert.equal(G.dentroForma([20,-80],vao,{ ax:[1,0,0],ay:[0,0,-1],d:[0,1,0] }),true);
   assert.equal(G.vazarPelaFace(molde, vao), null, 'não duplica o mesmo vão');
-  assert.equal(G.vazarPelaFace({...molde,x:100},vao),null,'rejeita sobreposição com vão anterior');
+  const fundido=G.vazarPelaFace({...molde,x:100},vao);
+  assert.ok(fundido && fundido.furos.length===1,'o novo corte se une ao vão anterior com que cruza');
+  assert.equal(G.vazarPelaFace({...molde,x:90,z:55,w:20,h:16,espessura:50},vao),null,'não duplica um molde que fica inteiramente dentro do vão');
   const dois = G.vazarPelaFace({...molde,x:160},vao);
   assert.equal(dois.furos.length,2,'acrescenta um segundo vão independente');
-  assert.equal(G.vazarPelaFace({...molde,x:0},parede),null,'não toca borda externa');
+  const naAresta=G.vazarPelaFace({...molde,x:0},parede);
+  assert.ok(naAresta && !naAresta.furos?.length,'corte alinhado à borda vira entalhe aberto');
   const paredeTopo={...parede,y:0,h:160,espessura:8};
   const moldeNaBorda={...molde,y:50,z:8,h:60,espessura:24,x:-20};
   const entalhe=G.vazarPelaFace(moldeNaBorda,paredeTopo);
@@ -377,6 +380,25 @@ assert.strictEqual(G.recortar(janela, [0, 1, 2]), null);
     assert.equal(resultado.furos[0].length,lados || G.SEGMENTOS_CIRCULO,'contorno real da face');
   }
   assert.deepEqual(G.prisma(JSON.parse(JSON.stringify(vao))),G.prisma(vao),'persistência preserva o vão');
+}
+// Portal côncavo: molde encostado, com a mesma altura e o mesmo início em Z.
+// Se o recorte separa a seção, ambas as partes azuis restantes são devolvidas.
+{
+  const perfil=[[0,0],[0,100],[100,100],[100,0],[70,0],[70,55],[68,62],[63,70],[55,76],[45,76],[37,70],[32,62],[30,55],[30,0]];
+  const portal={...nova(4),x:0,y:0,z:0,w:100,h:8,espessura:100,eixo:'y',lados:perfil.length,
+    pontos:perfil.map(([x,z])=>[x/100,z/100])};
+  const red={...nova(4),x:20,y:8,z:0,w:40,h:16,espessura:100};
+  const corte=G.vazarPelaFace(red,portal);
+  assert.ok(Array.isArray(corte)&&corte.length===2,'contato de faces com alturas e Z iguais corta portal em duas partes');
+  assert.ok(corte.every(p=>p.eixo==='y'&&!p.malha),'partes do portal continuam sendo prismas editáveis');
+  const perfilMesh=portal.pontos.map(([x,z])=>[x,0,z]).concat(portal.pontos.map(([x,z])=>[x,1,z]));
+  const n=perfil.length;
+  const portalMesh={...portal,pontos:undefined,malha:{v:perfilMesh,faces:[
+    perfil.map((_,i)=>i),perfil.map((_,i)=>n+i),
+    ...perfil.map((_,i)=>[i,(i+1)%n,n+(i+1)%n,n+i])
+  ],aberta:false}};
+  const corteMesh=G.vazarPelaFace(red,portalMesh);
+  assert.ok(Array.isArray(corteMesh)&&corteMesh.length===2,'alvo mesclado em malha extrudida aceita o mesmo recorte');
 }
 console.log('geometria: todos os testes passaram');
 

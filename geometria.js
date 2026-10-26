@@ -524,7 +524,7 @@
   // prisma no eixo normal à face (caixas valem nos três eixos). Não usa a projeção
   // da câmera: o contato e o contorno são verificados em coordenadas do mundo.
   function vazarPelaFace(molde, alvo) {
-    if (molde === alvo || alvo.malha) return null;
+    if (molde === alvo) return null;
     const m = molde.malha ? malhaMundo(molde) : malhaDoPrisma(molde);
     if (m.aberta || (!molde.malha && furosUV(molde).length)) return null;
     const tolerancia = 1e-4;
@@ -534,80 +534,128 @@
       const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2));
       return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy) <= tolerancia;
     };
-    const toca = (a, b) => a.some((p, i) => b.some((q, j) =>
+    const cruzaContornos = (a, b) => a.some((p, i) => b.some((q, j) =>
       sobreAresta(p, q, b[(j + 1) % b.length]) || sobreAresta(q, p, a[(i + 1) % a.length]) ||
       seCruzam(p, a[(i + 1) % a.length], q, b[(j + 1) % b.length])));
-    // Diferença entre a seção da parede e o molde. Cortes internos viram vãos;
-    // quando o molde alcança uma aresta externa, costura o trecho recortado à
-    // borda para formar um entalhe aberto (uma seção côncava simples).
-    function recortarBorda(borda, corte) {
-      const dentroFechado = (p, poli) => dentro(p, poli) || poli.some((a, i) => sobreAresta(p, a, poli[(i + 1) % poli.length]));
-      const partes = (poli, outro, manterDentro) => {
-        const saida = [];
-        for (let i = 0; i < poli.length; i++) {
-          const a = poli[i], b = poli[(i + 1) % poli.length], ts = [0, 1];
-          for (let j = 0; j < outro.length; j++) {
-            const c = outro[j], d = outro[(j + 1) % outro.length];
-            const den = (b[0]-a[0])*(d[1]-c[1])-(b[1]-a[1])*(d[0]-c[0]);
-            if (Math.abs(den) < 1e-10) continue;
-            const t = ((c[0]-a[0])*(d[1]-c[1])-(c[1]-a[1])*(d[0]-c[0]))/den;
-            const s = ((c[0]-a[0])*(b[1]-a[1])-(c[1]-a[1])*(b[0]-a[0]))/den;
-            if (t > 1e-9 && t < 1-1e-9 && s >= -1e-9 && s <= 1+1e-9) ts.push(t);
-          }
-          ts.sort((x,y)=>x-y);
-          for(let k=0;k<ts.length-1;k++) {
-            const t=ts[k], q=ts[k+1], mid=[a[0]+(b[0]-a[0])*(t+q)/2,a[1]+(b[1]-a[1])*(t+q)/2];
-            const estaDentro=manterDentro && poli===corte ? dentro(mid,outro) : dentroFechado(mid,outro);
-            if(estaDentro===manterDentro) saida.push([[limpa(a[0]+(b[0]-a[0])*t),limpa(a[1]+(b[1]-a[1])*t)],[limpa(a[0]+(b[0]-a[0])*q),limpa(a[1]+(b[1]-a[1])*q)]]);
+    // Secção de uma malha extrudida: recolhe os laços do contorno nas duas
+    // tampas e só aceita o alvo quando ambos são iguais e todos os vértices
+    // ficam nesses planos. Assim, paredes côncavas mescladas podem voltar a
+    // ser representadas como prismas, sem fingir que uma malha livre é prisma.
+    function secaoMalha(f, A) {
+      const M=malhaMundo(f), [pa]=AO_LONGO[A], [[u],[v]]=PLANO[A];
+      const min=Math.min(...M.v.map(p=>p[pa])), max=Math.max(...M.v.map(p=>p[pa]));
+      if(max-min<=tolerancia || M.v.some(p=>!iguais(p[pa],min)&&!iguais(p[pa],max))) return null;
+      function loopsNoPlano(plano) {
+        const segs=[];
+        for(const face of M.faces) {
+          const ids=face.filter(i=>iguais(M.v[i][pa],plano));
+          if(ids.length<2 || ids.length===face.length) continue;
+          for(let k=0;k<face.length;k++) {
+            const a=face[k],b=face[(k+1)%face.length];
+            if(iguais(M.v[a][pa],plano)&&iguais(M.v[b][pa],plano)) segs.push([[M.v[a][u],M.v[a][v]],[M.v[b][u],M.v[b][v]]]);
           }
         }
-        return saida;
-      };
-      const segmentos=[...partes(borda,corte,false),...partes(corte,borda,true)];
-      const loops=[];
-      while(segmentos.length) {
-        const primeiro=segmentos.pop(), loop=[primeiro[0],primeiro[1]];
-        while(Math.hypot(loop[loop.length-1][0]-loop[0][0],loop[loop.length-1][1]-loop[0][1])>tolerancia) {
-          const fim=loop[loop.length-1], idx=segmentos.findIndex(s=>Math.hypot(s[0][0]-fim[0],s[0][1]-fim[1])<=tolerancia);
-          if(idx<0) return null;
-          const s=segmentos.splice(idx,1)[0]; loop.push(s[1]);
-          if(loop.length>1000) return null;
+        const key=p=>`${Math.round(p[0]/tolerancia)},${Math.round(p[1]/tolerancia)}`;
+        const adj=new Map();
+        for(const [a,b] of segs) { const ka=key(a),kb=key(b); if(ka===kb) continue; (adj.get(ka)||adj.set(ka,[]).get(ka)).push({p:a,q:b,k:kb}); (adj.get(kb)||adj.set(kb,[]).get(kb)).push({p:b,q:a,k:ka}); }
+        if([...adj.values()].some(es=>es.length!==2)) return null;
+        const unused=new Set(segs.map(([a,b])=>[key(a),key(b)].sort().join('|'))), loops=[];
+        while(unused.size) {
+          const [start,other]=unused.values().next().value.split('|'), first=adj.get(start)[0];
+          let at=start, next=other, loop=[];
+          while(true) {
+            loop.push(adj.get(at).find(e=>e.k===next).p);
+            unused.delete([at,next].sort().join('|'));
+            const old=at; at=next;
+            if(at===start) break;
+            const edge=adj.get(at).find(e=>e.k!==old); if(!edge) return null; next=edge.k;
+            if(loop.length>segs.length) return null;
+          }
+          loop=semAlinhados(loop); if(loop.length<3||!simples(loop)) return null; loops.push(loop);
         }
-        loop.pop();
-        const limpo=semAlinhados(loop);
-        if(limpo.length>=3 && Math.abs(area(limpo))>tolerancia) loops.push(limpo);
+        if(!loops.length) return null;
+        const outer=loops.reduce((a,b)=>Math.abs(area(a))>=Math.abs(area(b))?a:b);
+        return loops.map(l=>((l===outer?area(l)>0:area(l)<0)?l:l.slice().reverse()));
       }
-      return loops.length===1 && simples(loops[0]) ? loops[0] : null;
+      const a=loopsNoPlano(min),b=loopsNoPlano(max); if(!a||!b||a.length!==b.length) return null;
+      const sig=ls=>ls.map(l=>l.map(p=>`${Math.round(p[0]*1e4)},${Math.round(p[1]*1e4)}`).sort().join(';')).sort().join('|');
+      if(sig(a)!==sig(b)) return null;
+      return { sec:a.map(l=>l.map(p=>[limpa(p[0]),limpa(p[1])])), inicio:min, comp:max-min };
+    }
+    // Boolean difference por segmentos: mantém qualquer trecho cuja ocupação
+    // muda entre os dois lados. Funciona com contornos côncavos, vãos e cortes
+    // que encostam em uma ou várias bordas; pode devolver várias peças.
+    function subtrairSecao(rings, corte) {
+      rings=rings.map((l,i)=>((area(l)>0)===(i===0)?l:l.slice().reverse()));
+      const areaOriginal=rings.reduce((s,l)=>s+area(l),0), areaCorte=Math.abs(area(corte));
+      if(Math.abs(areaOriginal)<=tolerancia||areaCorte<=tolerancia) return null;
+      if(area(corte)<0) corte=corte.slice().reverse();
+      const dentroParede=p=>dentro(p,rings[0])&&!rings.slice(1).some(h=>dentro(p,h));
+      const dentroResultado=p=>dentroParede(p)&&!dentro(p,corte);
+      const origens=[...rings,corte], arestas=[];
+      for(let r=0;r<origens.length;r++) for(let i=0;i<origens[r].length;i++) arestas.push({r,i,a:origens[r][i],b:origens[r][(i+1)%origens[r].length]});
+      const candidatos=[];
+      for(const e of arestas) {
+        const dx=e.b[0]-e.a[0],dy=e.b[1]-e.a[1],l2=dx*dx+dy*dy; if(l2<=tolerancia*tolerancia) continue;
+        const ts=[0,1];
+        for(const q of arestas) if(q!==e) {
+          const ex=q.b[0]-q.a[0],ey=q.b[1]-q.a[1],den=dx*ey-dy*ex;
+          if(Math.abs(den)>1e-10) {
+            const t=((q.a[0]-e.a[0])*ey-(q.a[1]-e.a[1])*ex)/den,s=((q.a[0]-e.a[0])*dy-(q.a[1]-e.a[1])*dx)/den;
+            if(t>1e-9&&t<1-1e-9&&s>=-1e-9&&s<=1+1e-9) ts.push(t);
+          } else if(Math.abs((q.a[0]-e.a[0])*dy-(q.a[1]-e.a[1])*dx)<tolerancia*Math.sqrt(l2)) {
+            for(const p of [q.a,q.b]) { const t=((p[0]-e.a[0])*dx+(p[1]-e.a[1])*dy)/l2; if(t>1e-9&&t<1-1e-9) ts.push(t); }
+          }
+        }
+        ts.sort((a,b)=>a-b);
+        for(let k=0;k<ts.length-1;k++) {
+          const t=ts[k],s=ts[k+1]; if(s-t<1e-9) continue;
+          const p=[limpa(e.a[0]+dx*t),limpa(e.a[1]+dy*t)],q=[limpa(e.a[0]+dx*s),limpa(e.a[1]+dy*s)];
+          const mx=(p[0]+q[0])/2,my=(p[1]+q[1])/2,nx=-dy/Math.sqrt(l2)*1e-3,ny=dx/Math.sqrt(l2)*1e-3;
+          const left=dentroResultado([mx+nx,my+ny]),right=dentroResultado([mx-nx,my-ny]);
+          if(left===right) continue;
+          candidatos.push(left?[p,q]:[q,p]);
+        }
+      }
+      const key=p=>`${Math.round(p[0]/tolerancia)},${Math.round(p[1]/tolerancia)}`;
+      const unique=new Map();
+      for(const [a,b] of candidatos) { const k=key(a)+'>'+key(b),rev=key(b)+'>'+key(a); if(unique.has(rev)) unique.delete(rev); else unique.set(k,[a,b]); }
+      const edges=[...unique.values()],out=new Map();
+      for(let i=0;i<edges.length;i++) { const k=key(edges[i][0]); if(!out.has(k)) out.set(k,[]); out.get(k).push(i); }
+      const used=new Set(),loops=[];
+      for(let i=0;i<edges.length;i++) if(!used.has(i)) {
+        const loop=[],start=key(edges[i][0]); let ei=i,guard=0;
+        while(!used.has(ei)) { used.add(ei); const [a,b]=edges[ei]; loop.push(a); const at=key(b); if(at===start) break; const next=(out.get(at)||[]).filter(j=>!used.has(j)); if(next.length!==1) return null; ei=next[0]; if(++guard>edges.length) return null; }
+        if(key(edges[ei][1])!==start) return null;
+        const clean=semAlinhados(loop); if(clean.length<3||!simples(clean)) return null; loops.push(clean);
+      }
+      const outers=loops.filter(l=>area(l)>tolerancia),holes=loops.filter(l=>area(l)<-tolerancia);
+      if(!outers.length) return [];
+      const result=outers.map(outer=>({contorno:outer,furos:holes.filter(h=>dentro(h[0],outer))}));
+      const kept=result.reduce((s,r)=>s+area(r.contorno)+r.furos.reduce((h,l)=>h+area(l),0),0);
+      return areaOriginal-kept>tolerancia?result:null;
     }
     for (const A of ['x', 'y', 'z']) {
-      const sec = secaoEm(alvo, A);
       const [pa, da] = AO_LONGO[A];
-      if (!sec || alvo[da] <= tolerancia) continue;
+      const extraida=alvo.malha?secaoMalha(alvo,A):null;
+      const sec = extraida ? extraida.sec : secaoEm(alvo, A);
+      const inicioAlvo=extraida?extraida.inicio:alvo[pa], compAlvo=extraida?extraida.comp:alvo[da];
+      if (!sec || compAlvo <= tolerancia) continue;
       const [[u], [v]] = PLANO[A];
       const min = Math.min(...m.v.map(p => p[pa])), max = Math.max(...m.v.map(p => p[pa]));
       // O molde fica do lado de fora; simples sobreposição na tela ou penetração não basta.
       const planos = [];
-      if (iguais(max, alvo[pa]) && min < max - tolerancia) planos.push(alvo[pa]);
-      if (iguais(min, alvo[pa] + alvo[da]) && max > min + tolerancia) planos.push(alvo[pa] + alvo[da]);
+      if (iguais(max, inicioAlvo) && min < max - tolerancia) planos.push(inicioAlvo);
+      if (iguais(min, inicioAlvo + compAlvo) && max > min + tolerancia) planos.push(inicioAlvo + compAlvo);
       for (const plano of planos) for (const face of m.faces) {
         const pontos = face.map(i => m.v[i]);
         if (!pontos.every(p => iguais(p[pa], plano))) continue;
         const corte = semAlinhados(pontos.map(p => [p[u], p[v]]));
         if (corte.length < 3 || Math.abs(area(corte)) <= tolerancia || !simples(corte)) continue;
-        const dentroParede=corte.every(p => dentro(p,sec[0]));
-        const dentroMolde=sec[0].every(p => dentro(p,corte));
-        const encosta=toca(corte,sec[0]);
-        let contorno=sec[0], furos=[...sec.slice(1),corte];
-        if (!dentroParede || encosta) {
-          // Um molde que cobre a parede toda a destruiria; sem interseção não há corte.
-          const intersecao = corte.some(p=>dentro(p,sec[0])) || sec[0].some(p=>dentro(p,corte)) || corte.some((p,i)=>sec[0].some((q,j)=>seCruzam(p,corte[(i+1)%corte.length],q,sec[0][(j+1)%sec[0].length])));
-          if (dentroMolde || !intersecao || !encosta || sec.length>1) continue;
-          contorno=recortarBorda(sec[0],corte);
-          if(!contorno || Math.abs(area(contorno)) >= Math.abs(area(sec[0]))-tolerancia) continue;
-          furos=[];
-        }
-        if (sec.slice(1).some(h => toca(corte, h) || corte.some(p => dentro(p, h)) || h.some(p => dentro(p, corte)))) continue;
-        return formaNoEixo(alvo, A, { contorno, furos }, alvo[pa], alvo[da]);
+        const subtracao=subtrairSecao(sec,corte); if(!subtracao) continue;
+        const base=alvo.malha?{...alvo,malha:undefined}:alvo;
+        const novas=subtracao.map(r=>formaNoEixo(base,A,r,inicioAlvo,compAlvo));
+        return novas.length===1?novas[0]:novas;
       }
     }
     return null;
