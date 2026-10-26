@@ -1222,7 +1222,7 @@
     const {forma:f,i}=origemNovoVertice;
     const delta=Object.fromEntries(['x','y','z'].map(k=>[k,$('vertice-d'+k).valueAsNumber]));
     const nova=G.criarVerticeRelativo(f,i,delta);
-    if(!nova) { $('erro-vertice').textContent=f.furos?.length?'Formas com furos ainda não aceitam novos vértices.':'O ponto deve ser novo e estar numa face plana ligada à origem. Confira os deslocamentos.';return; }
+    if(!nova) { $('erro-vertice').textContent='O ponto deve ser novo e estar numa face plana ligada à origem, fora do vazio dos furos. Confira os deslocamentos.';return; }
     const p=G.vertices(f)[i],alvo={x:p.x+delta.x,y:p.y+delta.y,z:p.z+delta.z};
     registrar();formas=formas.map(g=>g===f?nova:g);selecionar(nova,true);
     const idx=G.vertices(nova).findIndex(q=>Math.hypot(q.x-alvo.x,q.y-alvo.y,q.z-alvo.z)<1e-4);

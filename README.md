@@ -45,7 +45,9 @@ MIT. Veja `LICENSE`.
 
 ### Vértice relativo e segundo clique
 
-Marque um único vértice com Shift+clique e escolha **Criar vértice relativo…** no botão direito. Informe ΔX, ΔY e ΔZ em pixels do mundo; o ponto deve ser novo e estar numa face plana ligada à origem. A forma vira uma malha editável, e o vértice criado pode ser arrastado com duplo clique. Ctrl+Z desfaz. Formas com furos fechados ainda não aceitam inserção de vértices.
+Marque um único vértice com Shift+clique e escolha **Criar vértice relativo…** no botão direito. Informe ΔX, ΔY e ΔZ em pixels do mundo; o ponto deve ser novo e estar numa face plana ligada à origem. A forma vira uma malha editável, e o vértice criado pode ser arrastado com duplo clique. Ctrl+Z desfaz. Formas com furos fechados aceitam pontos nas tampas e nas paredes internas; pontos no vazio do furo são recusados.
 
 O primeiro clique numa peça agrupada seleciona o grupo; outro clique na mesma peça seleciona apenas ela. Arrastar continua movendo a seleção atual; ao mover uma peça selecionada sozinha, ela sai do grupo conforme o comportamento de Selecionar desacoplado.
+
+A triangulação de faces com furos usa Earcut 3.0.2, incluído localmente em earcut.js sob licença ISC (earcut-LICENSE.txt), sem depender de acesso à rede.
 
