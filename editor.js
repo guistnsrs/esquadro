@@ -90,6 +90,7 @@
   let marcadas = [];
   let vertSel = null;      // { forma, idx: Set } vértices marcados com Shift (índices de G.vertices)
   let selecionada = null;
+  let moldeVazado = null; // aguardando escolher entre duas ou mais peças encostadas
   let desacoplada = false; // seleção só das peças marcadas, sem o grupo
   let area = null;          // cópias para colar
   const vista = { zoom: 2, ox: 0, oy: 0 };
@@ -182,6 +183,7 @@
   // A seleção abrange os grupos das marcadas ou, desacoplada, só as marcadas.
   const selecao = () => (desacoplada ? marcadas.slice() : formas.filter((g) => marcadas.some((m) => m.grupo === g.grupo)));
   function marcar(lista, soPeca = false) {
+    moldeVazado = null;
     marcadas = lista.filter(Boolean);
     if (vertSel && !marcadas.includes(vertSel.forma)) vertSel = null;
     selecionada = marcadas[marcadas.length - 1] || null;
@@ -708,6 +710,7 @@
     if (p) partes.push(`chão x ${Math.round(p[0])} y ${Math.round(p[1])}`);
     if (arraste && arraste.tipo === 'vertice') partes.push('arrastando vértice: Shift sobe e desce · clique solta · Esc cancela');
     if (coresOcultas.size) partes.push(`${formas.length - visiveis().length} escondida(s) pelo filtro`);
+    if (moldeVazado) partes.push('Vazar pela face: clique na peça que receberá o vão · Esc cancela');
     if (vertSel) partes.push(`${vertSel.idx.size} vértice(s) marcado(s)`);
     if (arraste && arraste.encaixe) partes.push(arraste.encaixe.alvo ? 'encaixe no vértice' : 'encaixe na grade');
     $('status').textContent = partes.join('  ·  ');
@@ -719,6 +722,10 @@
   const arred = (v) => Math.round(v * 10) / 10;
 
   function atualizarPainel() {
+    const alvos = alvosParaVazar();
+    $('ferramenta-vazar').disabled = !alvos.length;
+    $('ferramenta-vazar').setAttribute('aria-pressed', String(!!moldeVazado));
+    $('ferramenta-vazar').title = alvos.length ? 'Vazar pela face: abre um vão na peça encostada, usando a selecionada como molde' : 'Selecione um molde com uma face plana encostada inteiramente dentro da face de uma parede prismática (X, Y ou Z)';
     const f = selecionada;
     $('props').hidden = !f;
     $('sem-selecao').hidden = !!f;
@@ -1190,6 +1197,38 @@
     selecionar(nova);
     mudou();
   }
+
+  // O alvo é a peça encostada NÃO marcada, mesmo se o encaixe a pôs no mesmo grupo.
+  function alvosParaVazar(molde = selecionada) {
+    if (!molde || marcadas.length !== 1) return [];
+    return visiveis().filter(f => f !== molde).flatMap(alvo => {
+      const nova = G.vazarPelaFace(molde, alvo);
+      return nova ? [{ alvo, nova }] : [];
+    });
+  }
+  function aplicarVazado(molde, alvo) {
+    const nova = G.vazarPelaFace(molde, alvo);
+    if (!nova) { avisar('Esta peça não tem uma face de contato compatível com o molde.'); return; }
+    registrar();
+    formas = formas.map(f => f === alvo ? nova : f);
+    moldeVazado = null;
+    vertSel = null;
+    selecionar(molde, true); // mover o molde depois não arrasta a parede junto
+    mudou();
+    avisar('Vão criado. O molde foi preservado; mova-o para ver a abertura. Ctrl+Z desfaz.');
+  }
+  function vazarPelaFace() {
+    if (moldeVazado) { moldeVazado = null; atualizarPainel(); return desenhar(); }
+    const alvos = alvosParaVazar();
+    if (!alvos.length) return avisar('Encoste uma face plana do molde dentro da face de uma parede, sem atravessar suas bordas ou outro vão.');
+    if (alvos.length === 1) return aplicarVazado(selecionada, alvos[0].alvo);
+    moldeVazado = selecionada;
+    ligarRegua(false);
+    atualizarPainel();
+    desenhar();
+    avisar('Há mais de uma peça encostada. Clique na que deve receber o vão.');
+  }
+  $('ferramenta-vazar').addEventListener('click', vazarPelaFace);
 
   // ---------- biblioteca ----------
   const CHAVE_BIBLIOTECA = 'esquadro-biblioteca';
@@ -1827,6 +1866,7 @@
       // Recortar só aparece com 3+ vértices marcados que formam uma área dentro da forma.
       const base = baseMarcada();
       if (base.length >= 3 && G.recortar(vertSel.forma, base)) itens.push(['Recortar área', recortarArea]);
+      itens.push(['Vazar pela face', vazarPelaFace, !alvosParaVazar().length]);
       const eixo = opcoes.eixoGiro.toUpperCase();
       itens.push(['Rotacionar', null, false, [90, 180, 270].map((g) => [`${g}°`, () => rotacionarSelecao(g)]), `Eixo ${eixo}`]);
       itens.push(['Definir cor…', () => abrirPopCor([sx, sy])]);
@@ -1870,6 +1910,14 @@
   window.addEventListener('blur', fecharMenu);
 
   canvas.addEventListener('pointerdown', (ev) => {
+    if (moldeVazado && ev.button === 0) {
+      ev.preventDefault();
+      const [sx, sy] = pos(ev);
+      const alvo = formaEm(sx, sy);
+      if (alvo && alvo !== moldeVazado) aplicarVazado(moldeVazado, alvo);
+      else avisar('Clique em outra peça encostada ao molde; Esc cancela.');
+      return;
+    }
     const [sx, sy] = pos(ev);
     if (arraste && arraste.tipo === 'vertice') { // um clique solta o vértice arrastado
       arraste = null;
@@ -2098,6 +2146,7 @@
     if (!ev.ctrlKey && !ev.metaKey && ev.key.toLowerCase() === 'r' && selecionada) { ev.preventDefault(); return rotacionarSelecao(ev.shiftKey ? 270 : 90); }
     if (!ev.ctrlKey && !ev.metaKey && ev.key.toLowerCase() === 'm') { ev.preventDefault(); return ligarRegua(!regua.ativa); }
     if (ev.key === 'Escape' && (!popCor.hidden || !popFiltro.hidden)) return fecharPopovers();
+    if (ev.key === 'Escape' && moldeVazado) { moldeVazado = null; atualizarPainel(); return desenhar(); }
     if (ev.key === 'Escape' && arraste && arraste.tipo === 'vertice') return cancelarArrasteVertice();
     if (ev.key === 'Escape' && regua.ativa) { if (regua.a) { regua.a = regua.b = null; return desenhar(); } return ligarRegua(false); }
     if (ev.key === 'Escape') { if (!$('menu').hidden) return fecharMenu(); if (vertSel) { vertSel = null; return desenhar(); } selecionar(null); return mudou(); }

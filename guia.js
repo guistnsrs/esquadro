@@ -55,6 +55,11 @@
       texto: 'Clique numa forma para marcá-la (em azul); com Ctrl, marque várias. Aqui ficam a posição e o tamanho exatos, em X, Y e Z, e os botões de separar do grupo, duplicar e excluir.',
     },
     {
+      alvo: ['#ferramenta-vazar'],
+      titulo: 'Vazar pela face',
+      texto: 'Encoste uma face de um bloco na parede e selecione o bloco como molde. Este botão (ou Vazar pela face no menu do botão direito) abre um vão na outra peça. Mova o molde para ver a abertura; Ctrl+Z desfaz. O contorno deve caber por inteiro dentro da face da parede.',
+    },
+    {
       alvo: ['#vista'],
       titulo: 'Menu do botão direito',
       texto: 'Numa forma: copiar, duplicar, selecionar desacoplado, salvar na biblioteca, mesclar (as formas que se encostam viram uma só, inclusive paredes com vão), recortar área (marque vértices com Shift+clique), rotacionar e definir cor. No fundo: colar e recentralizar.',
