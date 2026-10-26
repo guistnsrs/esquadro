@@ -1210,17 +1210,18 @@
     const nova = G.vazarPelaFace(molde, alvo);
     if (!nova) { avisar('Esta peça não tem uma face de contato compatível com o molde.'); return; }
     registrar();
-    formas = formas.map(f => f === alvo ? nova : f);
+    const novas = (Array.isArray(nova) ? nova : [nova]).map((f,i) => ({ ...f, id: i===0 ? alvo.id : novoId(), grupo: alvo.grupo }));
+    formas = formas.flatMap(f => f === alvo ? novas : [f]);
     moldeVazado = null;
     vertSel = null;
     selecionar(molde, true); // mover o molde depois não arrasta a parede junto
     mudou();
-    avisar('Vão criado. O molde foi preservado; mova-o para ver a abertura. Ctrl+Z desfaz.');
+    avisar(novas.length > 1 ? `Vão criado; a parede ficou em ${novas.length} partes. O molde foi preservado. Ctrl+Z desfaz.` : novas.length===0 ? 'Vazamento removeu toda a peça azul. O molde foi preservado. Ctrl+Z desfaz.' : 'Vão criado. O molde foi preservado; mova-o para ver a abertura. Ctrl+Z desfaz.');
   }
   function vazarPelaFace() {
     if (moldeVazado) { moldeVazado = null; atualizarPainel(); return desenhar(); }
     const alvos = alvosParaVazar();
-    if (!alvos.length) return avisar('Encoste uma face plana do molde dentro da face de uma parede, sem atravessar suas bordas ou outro vão.');
+    if (!alvos.length) return avisar('Encoste uma face plana do molde na parede. A forma azul será recortada pelo contorno de contato.');
     if (alvos.length === 1) return aplicarVazado(selecionada, alvos[0].alvo);
     moldeVazado = selecionada;
     ligarRegua(false);
@@ -2218,3 +2219,4 @@
   window.Blocos = { get refs() { return refs; }, telaRef, get formas() { return formas; }, get selecao() { return selecao(); }, get marcadas() { return marcadas; }, get biblioteca() { return biblioteca; }, vista, camera, opcoes, tela, desenhar, mudarVista };
   iniciar();
 })();
+
