@@ -411,5 +411,18 @@ assert.strictEqual(G.recortar(janela, [0, 1, 2]), null);
     assert.equal(ordenadas[1],parede);
   }
 }
+{
+  const cube={...nova(4),x:0,y:0,z:0,w:64,h:64,espessura:64};
+  const vs=G.vertices(cube),i=vs.findIndex(p=>p.x===0&&p.y===0&&p.z===64);
+  const novo=G.criarVerticeRelativo(cube,i,{x:24,y:24,z:0});
+  assert.ok(novo&&novo.malha,'ponto interior passa a integrar a malha');
+  const j=G.vertices(novo).findIndex(p=>p.x===24&&p.y===24&&p.z===64);
+  assert.ok(j>=0&&novo.malha.faces.filter(f=>f.includes(j)).length>=3);
+  assert.ok(G.moverVertice(novo,j,{x:24,y:24,z:80}),'novo vértice permite deformação');
+  assert.equal(G.criarVerticeRelativo(cube,i,{x:24,y:24,z:1}),null,'ponto fora da face é rejeitado');
+  const edge=G.criarVerticeRelativo(cube,i,{x:32,y:0,z:0});
+  const ei=G.vertices(edge).findIndex(p=>p.x===32&&p.y===0&&p.z===64);
+  assert.equal(edge.malha.faces.filter(f=>f.includes(ei)).length,2,'aresta compartilhada é atualizada nas duas faces');
+}
 console.log('geometria: todos os testes passaram');
 

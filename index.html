@@ -369,6 +369,19 @@
   <div id="aviso" class="aviso" role="status" hidden></div>
 </main>
 
+<dialog id="dialogo-vertice">
+  <form id="form-vertice">
+    <h2>Criar vértice relativo</h2>
+    <p id="origem-vertice"></p>
+    <p>Deslocamentos em pixels do mundo. O ponto deve ficar numa face ligada ao vértice de origem.</p>
+    <label>ΔX <input id="vertice-dx" type="number" step="any" value="0" required></label>
+    <label>ΔY <input id="vertice-dy" type="number" step="any" value="0" required></label>
+    <label>ΔZ <input id="vertice-dz" type="number" step="any" value="0" required></label>
+    <p id="erro-vertice" role="alert"></p>
+    <div class="dialogo-botoes"><button type="button" id="cancelar-vertice">Cancelar</button><button class="primario" type="submit">Criar vértice</button></div>
+  </form>
+</dialog>
+
 <dialog id="dialogo-salvar">
   <form method="dialog">
     <label for="nome-salvo" id="titulo-nome">Salvar na biblioteca</label>
@@ -437,3 +450,4 @@
 <script src="guia.js"></script>
 </body>
 </html>
+

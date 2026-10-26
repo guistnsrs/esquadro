@@ -1206,6 +1206,29 @@
       return nova ? [{ alvo, nova }] : [];
     });
   }
+  let origemNovoVertice = null;
+  function abrirVerticeRelativo() {
+    if(!vertSel || vertSel.idx.size!==1) return avisar('Marque um vértice da forma com Shift+clique.');
+    origemNovoVertice={forma:vertSel.forma,i:[...vertSel.idx][0]};
+    const p=G.vertices(origemNovoVertice.forma)[origemNovoVertice.i];
+    $('origem-vertice').textContent=`Origem: X ${p.x}, Y ${p.y}, Z ${p.z}`;
+    for(const k of ['x','y','z']) $('vertice-d'+k).value='0';
+    $('erro-vertice').textContent='';$('dialogo-vertice').showModal();$('vertice-dx').focus();
+  }
+  $('cancelar-vertice').addEventListener('click',()=>$('dialogo-vertice').close());
+  $('form-vertice').addEventListener('submit',ev=>{
+    ev.preventDefault();
+    if(!origemNovoVertice || !formas.includes(origemNovoVertice.forma)) return;
+    const {forma:f,i}=origemNovoVertice;
+    const delta=Object.fromEntries(['x','y','z'].map(k=>[k,$('vertice-d'+k).valueAsNumber]));
+    const nova=G.criarVerticeRelativo(f,i,delta);
+    if(!nova) { $('erro-vertice').textContent=f.furos?.length?'Formas com furos ainda não aceitam novos vértices.':'O ponto deve ser novo e estar numa face plana ligada à origem. Confira os deslocamentos.';return; }
+    const p=G.vertices(f)[i],alvo={x:p.x+delta.x,y:p.y+delta.y,z:p.z+delta.z};
+    registrar();formas=formas.map(g=>g===f?nova:g);selecionar(nova,true);
+    const idx=G.vertices(nova).findIndex(q=>Math.hypot(q.x-alvo.x,q.y-alvo.y,q.z-alvo.z)<1e-4);
+    vertSel={forma:nova,idx:new Set([idx])};
+    $('dialogo-vertice').close();mudou();avisar('Vértice criado. Duplo clique nele permite arrastá-lo. Ctrl+Z desfaz.');
+  });
   function aplicarVazado(molde, alvo) {
     const nova = G.vazarPelaFace(molde, alvo);
     if (!nova) { avisar('Esta peça não tem uma face de contato compatível com o molde.'); return; }
@@ -1866,6 +1889,7 @@
       }
       // Recortar só aparece com 3+ vértices marcados que formam uma área dentro da forma.
       const base = baseMarcada();
+      itens.push(['Criar vértice relativo…', abrirVerticeRelativo, !vertSel || vertSel.forma!==f || vertSel.idx.size!==1]);
       if (base.length >= 3 && G.recortar(vertSel.forma, base)) itens.push(['Recortar área', recortarArea]);
       itens.push(['Vazar pela face', vazarPelaFace, !alvosParaVazar().length]);
       const eixo = opcoes.eixoGiro.toUpperCase();
@@ -1985,10 +2009,11 @@
       registrar();
       // Clicar numa forma já marcada mantém a marcação (para arrastar todas);
       // sem arrastar, fica só ela.
-      const reduzir = marcadas.includes(f) && marcadas.length > 1 ? f : null;
+      const segundoClique = selecionada===f && marcadas.length===1 && !desacoplada && grupoDe(f).length>1;
+      const reduzir = marcadas.includes(f) && (marcadas.length > 1 || segundoClique) ? f : null;
       if (!marcadas.includes(f)) selecionar(f);
       const grupo = selecao();
-      arraste = { tipo: 'mover', sx, sy, grupo, ini: grupo.map((g) => ({ x: g.x, y: g.y, z: g.z })), mexeu: false, reduzir };
+      arraste = { tipo: 'mover', sx, sy, grupo, ini: grupo.map((g) => ({ x: g.x, y: g.y, z: g.z })), mexeu: false, reduzir, segundoClique };
     } else {
       if (!(ev.ctrlKey || ev.metaKey)) selecionar(null);
       arraste = { tipo: 'vista', sx, sy, ox: vista.ox, oy: vista.oy };
@@ -2068,7 +2093,7 @@
       }
       if (!arraste.mexeu) {
         historico.pop();
-        if (arraste.reduzir) selecionar(arraste.reduzir, desacoplada);
+        if (arraste.reduzir) selecionar(arraste.reduzir, arraste.segundoClique || desacoplada);
       }
     }
     if (arraste.tipo === 'girar') salvarOpcoes();

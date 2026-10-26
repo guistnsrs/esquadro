@@ -854,6 +854,56 @@
     return { v, faces, aberta: false };
   }
 
+  // Insere um ponto relativo numa face incidente ao vértice de origem. Triangula
+  // a face para o ponto passar a integrar sua topologia e poder ser arrastado.
+  function criarVerticeRelativo(f, indice, delta) {
+    if (furosUV(f).length) return null;
+    const origem=vertices(f)[indice];
+    if(!origem || !['x','y','z'].every(k=>Number.isFinite(delta[k]))) return null;
+    const p=Object.fromEntries(['x','y','z'].map(k=>[k,limpa(origem[k]+delta[k])]));
+    const m=f.malha?malhaMundo(f):malhaDoPrisma(f);
+    if(m.v.some(q=>Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z)<1e-5)) return null;
+    const source=m.v.findIndex(q=>Math.hypot(q.x-origem.x,q.y-origem.y,q.z-origem.z)<1e-5);
+    const novo=m.v.length;
+    const sobreSegmento=(a,b)=>{
+      const d=sub3(b,a),v=sub3(p,a),l=dot3(d,d),t=dot3(v,d)/(l||1);
+      return t>1e-6&&t<1-1e-6&&Math.hypot(...v.map((x,i)=>x-t*d[i]))<1e-5;
+    };
+    // Aresta compartilhada: inserir em todas as faces evita fendas na malha.
+    const edge=m.faces.some(face=>face.includes(source)&&face.some((i,k)=>sobreSegmento(m.v[i],m.v[face[(k+1)%face.length]])));
+    if(edge) {
+      const faces=m.faces.map(face=>face.flatMap((i,k)=>sobreSegmento(m.v[i],m.v[face[(k+1)%face.length]])?[i,novo]:[i]));
+      return formaDeMalha(f,{...m,v:[...m.v,p],faces});
+    }
+    for(let fi=0;fi<m.faces.length;fi++) {
+      const face=m.faces[fi]; if(!face.includes(source)) continue;
+      const pts=face.map(i=>m.v[i]),n=normal3(pts);
+      if(Math.abs(dot3(n,sub3(p,pts[0])))>1e-5) continue;
+      const drop=n.map(Math.abs).indexOf(Math.max(...n.map(Math.abs))),axes=['x','y','z'].filter((_,i)=>i!==drop);
+      const proj=q=>axes.map(k=>q[k]),poly=pts.map(proj),q=proj(p);
+      if(!dentro(q,poly)) continue;
+      const sign=Math.sign(area(poly)),ids=face.slice(),tri=[];
+      const cross=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+      const inTri=(v,a,b,c)=>{const s=[cross(a,b,v),cross(b,c,v),cross(c,a,v)];return s.every(x=>x>=-1e-7)||s.every(x=>x<=1e-7);};
+      while(ids.length>3) {
+        const k=ids.findIndex((id,j)=>{
+          const a=ids[(j+ids.length-1)%ids.length],c=ids[(j+1)%ids.length];
+          return cross(proj(m.v[a]),proj(m.v[id]),proj(m.v[c]))*sign>1e-7&&!ids.some(t=>t!==a&&t!==id&&t!==c&&inTri(proj(m.v[t]),proj(m.v[a]),proj(m.v[id]),proj(m.v[c])));
+        });
+        if(k<0) return null;
+        tri.push([ids[(k+ids.length-1)%ids.length],ids[k],ids[(k+1)%ids.length]]);ids.splice(k,1);
+      }
+      tri.push(ids);
+      const divided=tri.flatMap(t=>{
+        if(!inTri(q,...t.map(i=>proj(m.v[i])))) return [t];
+        return t.map((id,k)=>[id,t[(k+1)%3],novo]).filter(t2=>Math.abs(cross(...t2.map(i=>proj(i===novo?p:m.v[i]))))>1e-7);
+      });
+      const faces=m.faces.flatMap((old,j)=>j===fi?divided:[old]);
+      return formaDeMalha(f,{...m,v:[...m.v,p],faces});
+    }
+    return null;
+  }
+
   // Junta vértices no mesmo ponto, tira das faces os repetidos e apaga as faces que sobram com
   // menos de 3 cantos (ex.: arrastar um vértice até o vizinho).
   function simplificarMalha(m) {
@@ -1044,7 +1094,7 @@
     cameraOrbita, misturarCameras, projetar, molde, criarForma, contorno, verticesBase, vertices, caixa,
     buscarEncaixe, encaixeGrade, ordemDesenho, envoltoria, silhueta, dentro,
     eixoDe, contornoUV, prisma, rotacionar, rotacionarGrupo, uniaoSecoes,
-    malhaMundo, malhaDoPrisma, moverVertice, facesVisiveis, normal3, mesclarPorFace,
+    malhaMundo, malhaDoPrisma, moverVertice, criarVerticeRelativo, facesVisiveis, normal3, mesclarPorFace,
     area, normalExterna, faces, dentroForma, uniaoContornos, mesclar, mesclarVarias, areaRecorte, recortar, vazarPelaFace,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

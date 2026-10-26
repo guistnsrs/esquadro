@@ -43,3 +43,9 @@ O comando **Vazar pela face** reconhece contato real em 3D, em qualquer vista da
 
 MIT. Veja `LICENSE`.
 
+### Vértice relativo e segundo clique
+
+Marque um único vértice com Shift+clique e escolha **Criar vértice relativo…** no botão direito. Informe ΔX, ΔY e ΔZ em pixels do mundo; o ponto deve ser novo e estar numa face plana ligada à origem. A forma vira uma malha editável, e o vértice criado pode ser arrastado com duplo clique. Ctrl+Z desfaz. Formas com furos fechados ainda não aceitam inserção de vértices.
+
+O primeiro clique numa peça agrupada seleciona o grupo; outro clique na mesma peça seleciona apenas ela. Arrastar continua movendo a seleção atual; ao mover uma peça selecionada sozinha, ela sai do grupo conforme o comportamento de Selecionar desacoplado.
+
