@@ -353,6 +353,13 @@ assert.strictEqual(G.recortar(janela, [0, 1, 2]), null);
   const dois = G.vazarPelaFace({...molde,x:160},vao);
   assert.equal(dois.furos.length,2,'acrescenta um segundo vão independente');
   assert.equal(G.vazarPelaFace({...molde,x:0},parede),null,'não toca borda externa');
+  const paredeTopo={...parede,y:0,h:160,espessura:8};
+  const moldeNaBorda={...molde,y:50,z:8,h:60,espessura:24,x:-20};
+  const entalhe=G.vazarPelaFace(moldeNaBorda,paredeTopo);
+  assert.ok(entalhe && !entalhe.furos?.length,'molde que cruza a aresta vira entalhe aberto');
+  assert.ok(entalhe.pontos.length>4,'o novo contorno da parede fica côncavo');
+  assert.ok(G.dentroForma([10,-80],entalhe,{ax:[1,0,0],ay:[0,0,-1],d:[0,1,0]} )===false,'a região recortada na borda fica vazia');
+  assert.equal(G.vazarPelaFace({...moldeNaBorda,x:-40},paredeTopo),null,'tangência pela aresta sem área de recorte não altera a parede');
   assert.equal(G.vazarPelaFace({...molde,y:8.5},parede),null,'sem contato');
   assert.equal(G.vazarPelaFace({...molde,y:7},parede),null,'penetração não é apoio de face');
   assert.equal(G.vazarPelaFace({...molde,x:240},parede),null,'aresta/ponto não bastam');
@@ -372,3 +379,4 @@ assert.strictEqual(G.recortar(janela, [0, 1, 2]), null);
   assert.deepEqual(G.prisma(JSON.parse(JSON.stringify(vao))),G.prisma(vao),'persistência preserva o vão');
 }
 console.log('geometria: todos os testes passaram');
+

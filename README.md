@@ -29,7 +29,7 @@ Baixe a pasta e abra `index.html` no navegador (duplo clique basta). Tudo é HTM
 
 Na primeira visita, um **guia passo a passo** destaca cada parte da tela e explica o que ela faz; ele volta pelo botão de bússola no topo do painel. A tecla `?` mostra todos os atalhos.
 
-O comando **Vazar pela face** reconhece contato real em 3D, em qualquer vista da câmera. A parede deve ser um prisma de seção constante na direção do corte (X, Y ou Z; uma caixa serve nas três). O contorno do molde precisa ficar inteiramente dentro da face, sem tocar a borda ou outro vão. São aceitos moldes poligonais, circulares (com a mesma aproximação do editor) e faces planas de malhas. Paredes deformadas em malha, cortes inclinados e recortes que abram a borda ainda não são suportados. Sem contato compatível, o comando fica desabilitado. Vãos já existentes são preservados.
+O comando **Vazar pela face** reconhece contato real em 3D, em qualquer vista da câmera. A parede deve ser um prisma de seção constante na direção do corte (X, Y ou Z; uma caixa serve nas três). O contorno do molde pode ficar inteiramente dentro da face (criando um vão) ou cruzar uma de suas bordas (criando um entalhe aberto). O molde precisa remover uma área real da parede; apenas encostar na borda não altera a forma. São aceitos moldes poligonais, circulares (com a mesma aproximação do editor) e faces planas de malhas. Paredes deformadas em malha, cortes inclinados, cortes que dividam a parede em mais de uma peça e entalhes sobre paredes que já tenham vãos ainda não são suportados. Vãos internos existentes são preservados quando não cruzados pelo molde.
 
 ## Arquivos
 
@@ -42,3 +42,4 @@ O comando **Vazar pela face** reconhece contato real em 3D, em qualquer vista da
 ## Licença
 
 MIT. Veja `LICENSE`.
+
