@@ -159,6 +159,22 @@
   .lista-cenas .cena.atual { border-color: var(--azul); }
   .lista-cenas .quando { color: var(--fraco); font-size: 12px; }
   .lista-cenas .vazio { color: var(--apagado); font-size: 12px; margin: 4px 0; }
+  /* guia */
+  .guia { position: fixed; inset: 0; z-index: 50; }
+  .guia[hidden] { display: none; }
+  .guia-fundo { position: absolute; inset: 0; background: rgba(0,0,0,.6); }
+  .guia-fundo[hidden], .guia-destaque[hidden] { display: none; }
+  .guia-destaque { position: absolute; border-radius: 8px; border: 2px solid var(--azul);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,.6); pointer-events: none; }
+  .guia-cartao { position: absolute; width: min(340px, calc(100vw - 16px)); padding: 16px; background: #181818; color: var(--texto);
+    border: 1px solid var(--borda-forte); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+  .guia-passo { color: var(--azul); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .guia-cartao h2 { margin: 4px 0 6px; font-size: 16px; }
+  .guia-cartao p { margin: 0 0 14px; color: #c8c8c8; line-height: 1.5; }
+  .guia-botoes { display: flex; gap: 6px; align-items: center; }
+  .guia-espaco { flex: 1; }
+  .guia-pular { background: none; border-color: transparent; color: var(--fraco); padding-left: 0; }
+  .guia-pular:hover:not(:disabled) { background: none; color: var(--texto); }
   #status { position: absolute; left: 12px; bottom: 9px; color: #666; font: 12px ui-monospace, monospace; pointer-events: none; }
 
   .menu { position: absolute; z-index: 2; min-width: 200px; padding: 4px; background: #181818;
@@ -212,6 +228,7 @@
   <symbol id="i-pasta" viewBox="0 0 24 24"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol>
   <symbol id="i-nova" viewBox="0 0 24 24"><path d="M6 3h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4M11.5 11v6M8.5 14h6"/></symbol>
   <symbol id="i-filtro" viewBox="0 0 24 24"><path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/></symbol>
+  <symbol id="i-guia" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></symbol>
   <symbol id="i-regua" viewBox="0 0 24 24"><path d="M3.5 15.5 15.5 3.5l5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2M14.5 4.5l1.5 1.5"/></symbol>
   <symbol id="i-girar" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4.5h-4.5"/></symbol>
   <symbol id="i-duplicar" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
@@ -223,6 +240,7 @@
     <button class="icone" id="salvar-cena" title="Salvar cena (Ctrl+S; Ctrl+Shift+S salva como)" aria-label="Salvar cena"><svg class="i"><use href="#i-salvar"/></svg></button>
     <button class="icone" id="carregar-cena" title="Carregar cena (Ctrl+O)" aria-label="Carregar cena"><svg class="i"><use href="#i-pasta"/></svg></button>
     <button class="icone" id="limpar" title="Nova cena (limpa tudo; Ctrl+Z desfaz)" aria-label="Nova cena"><svg class="i"><use href="#i-nova"/></svg></button>
+    <button class="icone" id="abrir-guia" title="Guia: conheça as ferramentas passo a passo" aria-label="Guia"><svg class="i"><use href="#i-guia"/></svg></button>
     <button class="icone" id="abrir-ajuda" title="Atalhos e comandos (?)" aria-label="Atalhos e comandos"><svg class="i"><use href="#i-ajuda"/></svg></button>
   </div>
   <input id="arquivo" type="file" accept=".json,application/json" hidden>
@@ -406,7 +424,7 @@
       <dt><kbd>M</kbd></dt><dd>Liga e desliga a régua (clique em dois vértices para medir; <kbd>Esc</kbd> limpa a medida)</dd>
       <dt><kbd>Del</kbd></dt><dd>Exclui</dd>
       <dt><kbd>Esc</kbd></dt><dd>Desmarca os vértices; de novo, limpa a seleção</dd>
-      <dt><kbd>?</kbd></dt><dd>Abre esta ajuda</dd>
+      <dt><kbd>?</kbd></dt><dd>Abre esta ajuda (o botão ao lado abre o guia passo a passo)</dd>
     </dl>
     <div class="dialogo-botoes"><button value="fechar" class="primario">Entendi</button></div>
   </form>
@@ -414,5 +432,6 @@
 
 <script src="geometria.js"></script>
 <script src="editor.js"></script>
+<script src="guia.js"></script>
 </body>
 </html>

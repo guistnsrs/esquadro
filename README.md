@@ -26,13 +26,14 @@ Baixe a pasta e abra `index.html` no navegador (duplo clique basta). Tudo é HTM
 - **Biblioteca:** salve peças com nome e coloque cópias no desenho; exporte e importe a biblioteca como JSON.
 - **Cenas:** `Ctrl+S` salva e `Ctrl+O` carrega (no Chrome e no Edge, `Ctrl+S` grava de novo no mesmo arquivo).
 
-A tecla `?` mostra todos os atalhos.
+Na primeira visita, um **guia passo a passo** destaca cada parte da tela e explica o que ela faz; ele volta pelo botão de bússola no topo do painel. A tecla `?` mostra todos os atalhos.
 
 ## Arquivos
 
 - `index.html`: página e painel.
 - `geometria.js`: formas, vértices, câmeras, encaixes, mescla, recorte, giro e malhas 3D. Sem acesso ao DOM; também roda no Node.
 - `editor.js`: visualizador e interação.
+- `guia.js`: o guia passo a passo.
 - `testes.cjs`: testes da geometria, com `node testes.cjs`.
 
 ## Licença
