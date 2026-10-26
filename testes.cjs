@@ -227,9 +227,9 @@ assert.strictEqual(portal.eixo, 'y');
 assert.deepStrictEqual([portal.x, portal.y, portal.z, portal.w, portal.h, portal.espessura], [0, 0, 0, 96, 16, 120]);
 assert.strictEqual(portal.pontos.length, 8, 'seção em U invertido com 8 cantos');
 perto(Math.abs(G.area(portal.pontos.map(([u, v]) => [u * 96, v * 120]))), 2 * 16 * 96 + 96 * 24, 'área da seção');
-// Verga com profundidade diferente das colunas: não mescla.
+// Contatos parciais com profundidades diferentes também unem o portal.
 const vergaFunda = Object.assign({}, verga, { h: 24 });
-assert.strictEqual(G.mesclarVarias([colA, colB, vergaFunda]), null);
+assert.ok(G.mesclarVarias([colA, colB, vergaFunda]));
 
 // Malha: subir um vértice de cima de um cubo deixa 8 vértices e 6 faces, e a caixa cresce.
 const cubo = Object.assign(nova(4, 0, 0), { w: 64, h: 64, espessura: 64 });
@@ -269,7 +269,7 @@ const larga = { ...pir, w: 128 };
 assert.ok(G.vertices(larga).some((p) => p.x === 128), 'esticar escala a malha');
 // Círculo ainda não; malha não mescla.
 assert.strictEqual(G.moverVertice(nova(0, 0, 0), 0, { x: 0, y: 0, z: 10 }), null);
-assert.strictEqual(G.mesclar(pir, cubo), null);
+assert.ok(G.mesclar(pir, cubo),'sólidos sobrepostos mesclam por união booleana');
 
 // Mescla por face: cubo deformado (canto de trás subiu) encostado num cubo comum pela face x = 64.
 const cuboA = Object.assign(nova(4, 0, 0), { w: 64, h: 64, espessura: 64 });
@@ -288,7 +288,7 @@ assert.deepStrictEqual([juntos.x, juntos.w, juntos.espessura], [0, 128, 96]);
 assert.ok(G.mesclar(cuboB, deformado));
 // Sem face inteira em comum: não mescla (encostado só em parte, ou separado).
 const meioCubo = Object.assign(nova(4, 64, 0), { w: 32, h: 32, espessura: 32 });
-assert.strictEqual(G.mesclar(deformado, meioCubo), null, 'só parte da face');
+assert.ok(G.mesclar(deformado, meioCubo), 'contato parcial da face permite união booleana');
 assert.strictEqual(G.mesclar(deformado, Object.assign(nova(4, 200, 0), { w: 64, h: 64, espessura: 64 })), null, 'separadas');
 // A pirâmide em cima do cubo deformado? A base dela coincide com a face de cima do cubo comum.
 const pirEmCima = { ...pir, x: 64, y: 0, z: 64 };
@@ -445,6 +445,25 @@ assert.strictEqual(G.recortar(janela, [0, 1, 2]), null);
     const mesh=G.malhaDoPrisma(rot),center=face.reduce((s,id)=>({x:s.x+mesh.v[id].x/3,y:s.y+mesh.v[id].y/3,z:s.z+mesh.v[id].z/3}),{x:0,y:0,z:0});
     assert.ok(G.criarVerticeRelativo(rot,0,{x:center.x-start.x,y:center.y-start.y,z:center.z-start.z}),`furo preservado no eixo ${axis}`);
   }
+}
+{
+  const perfil=[[0,0],[0,100],[100,100],[100,0],[70,0],[70,55],[68,62],[63,70],[55,76],[45,76],[37,70],[32,62],[30,55],[30,0]];
+  const arco={...nova(4),x:0,y:0,z:0,w:100,h:8,espessura:100,eixo:'y',lados:perfil.length,pontos:perfil.map(([x,z])=>[x/100,z/100])};
+  const [girado]=G.rotacionarGrupo([arco],'z',90),outro={...girado,id:999,grupo:999,x:0,y:0};
+  const unido=G.mesclar(arco,outro);
+  assert.ok(unido&&unido.malha,'portais perpendiculares com sobreposição parcial mesclam');
+  const frente={ax:[1,0,0],ay:[0,0,-1],d:[0,1,0]},lado={ax:[0,1,0],ay:[0,0,-1],d:[1,0,0]};
+  assert.equal(G.dentroForma([50,-40],unido,frente),false,'passagem do primeiro arco permanece aberta');
+  assert.equal(G.dentroForma([50,-40],unido,lado),false,'passagem do segundo arco permanece aberta');
+  const edges=new Map();for(const f of unido.malha.faces)for(let k=0;k<f.length;k++){const key=[f[k],f[(k+1)%f.length]].sort((a,b)=>a-b).join(':');edges.set(key,(edges.get(key)||0)+1);}
+  assert.ok([...edges.values()].every(n=>n===2),'união dos arcos mantém malha fechada');
+  const origem=G.vertices(arco).findIndex(p=>p.x===0&&p.y===0&&p.z===100);
+  const editado=G.criarVerticeRelativo(arco,origem,{x:50,y:4,z:0});
+  assert.ok(editado&&G.mesclar(editado,outro),'arco convertido em malha por novo vértice também mescla');
+  assert.equal(G.mesclar(arco,{...outro,x:200}),null,'peças separadas continuam recusadas');
+  const box={...nova(4),x:0,y:0,z:0,w:64,h:64,espessura:64};
+  assert.ok(G.mesclar(box,{...box,x:32,id:998}),'caixas sobrepostas podem ser unidas');
+  assert.equal(G.mesclar(box,{...box,x:64,y:64,id:998}),null,'contato só por aresta não cria sólido único');
 }
 console.log('geometria: todos os testes passaram');
 

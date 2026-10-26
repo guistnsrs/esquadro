@@ -17,7 +17,7 @@ Baixe a pasta e abra `index.html` no navegador (duplo clique basta). Tudo é HTM
 - **Encaixe:** vértices próximos se encaixam e as peças encaixadas passam a se mover juntas. Também há encaixe na grade (tiles de 64 px), com vértices e meio dos lados. Cada assistente pode ser desligado.
 - **Vistas:** a oblíqua de jogo em grade (a altura sobe na diagonal), topo, isométrica e giro livre segurando o botão da roda, com um ícone que mostra a orientação e trava opcional em múltiplos de 45°.
 - **Seleção:** clique marca a forma (em azul), `Ctrl`+clique marca várias; o grupo inteiro vem junto, ou só as peças, com "Selecionar desacoplado".
-- **Mesclar:** formas que se encostam viram uma só, e os vértices entre elas somem. Peças que fecham uma volta (paredes em torno de uma janela) viram uma parede com vão.
+- **Mesclar:** marque duas ou mais formas com Ctrl+clique e use Mesclar no botão direito. Sólidos podem se encontrar por parte de uma face ou se sobrepor, inclusive arcos e paredes perpendiculares. A união remove superfícies internas e preserva as aberturas restantes. Peças separadas, abertas ou em contato só por ponto/aresta são recusadas. Ctrl+Z restaura as peças originais.
 - **Recortar área:** com `Shift`, marque vértices de uma forma; a área entre eles (em vermelho) pode ser recortada.
 - **Vazar pela face:** encoste uma face de um bloco ou volume na face de uma parede e selecione o bloco que servirá de molde. Use **Vazar pela face** no botão direito ou na barra superior para abrir um vão no formato exato dessa face, atravessando a parede inteira. A parede conserva sua cor, o molde é preservado e fica selecionado de forma desacoplada: mova-o para ver a abertura. `Ctrl+Z` desfaz. Se o molde encostar em mais de uma parede compatível, clique naquela que deve receber o vão; `Esc` cancela essa escolha.
 - **Rotacionar:** 90°, 180° e 270° em X, Y ou Z; um prisma deitado de lado vira rampa ou telhado.
@@ -50,4 +50,6 @@ Marque um único vértice com Shift+clique e escolha **Criar vértice relativo�
 O primeiro clique numa peça agrupada seleciona o grupo; outro clique na mesma peça seleciona apenas ela. Arrastar continua movendo a seleção atual; ao mover uma peça selecionada sozinha, ela sai do grupo conforme o comportamento de Selecionar desacoplado.
 
 A triangulação de faces com furos usa Earcut 3.0.2, incluído localmente em earcut.js sob licença ISC (earcut-LICENSE.txt), sem depender de acesso à rede.
+
+União booleana de sólidos usa CSG.js de Evan Wallace, incluído localmente sob licença MIT (csg-LICENSE.txt).
 
