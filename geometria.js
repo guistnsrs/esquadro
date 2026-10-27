@@ -5,6 +5,7 @@
 (function (raiz) {
   'use strict';
   const triangulador = typeof module !== 'undefined' && module.exports ? require('./earcut.js') : raiz.Earcut;
+  const CSG = typeof module !== 'undefined' && module.exports ? require('./csg.js') : raiz.CSG;
 
   const LADO = 32;           // px por lado de todo polígono novo
   const DIAMETRO = 32;       // px de diâmetro do círculo novo
@@ -515,7 +516,7 @@
   // - ou tenham a mesma seção e fiquem uma na ponta da outra (somam o comprimento).
   // Se nada disso servir (formas livres em 3D, por exemplo), tenta a mescla por face em comum.
   function mesclar(a, b) {
-    if (a.malha || b.malha) return mesclarPorFace(a, b);
+    if (a.malha || b.malha) return mesclarPorFace(a, b) || mesclarSolidos(a,b);
     const eixos = [...new Set([eixoDe(a), eixoDe(b), 'z', 'x', 'y'])];
     for (const A of eixos) {
       const sa = secaoEm(a, A), sb = secaoEm(b, A);
@@ -532,7 +533,7 @@
       const u = uniaoSecoes(sa, sb);
       if (u) return formaNoEixo(a, A, u, ia, ca);
     }
-    return mesclarPorFace(a, b);
+    return mesclarPorFace(a, b) || mesclarSolidos(a,b);
   }
 
   // Vão passante a partir da face de contato de outro sólido. A parede deve ser um
@@ -998,6 +999,69 @@
     const va = volume(ma.v, ma.faces), vb = volume(mb.v, mb.faces), vj = volume(v, faces);
     if (Math.abs(vj - va - vb) > 1e-3 * (Math.abs(va) + Math.abs(vb)) + 0.5) return null;
     return formaDeMalha(a, { v, faces, aberta: false });
+  }
+
+  // União booleana de sólidos: recorta superfícies sobrepostas e remove as
+  // faces internas, incluindo contatos parciais entre arcos e paredes.
+  function mesclarSolidos(a,b) {
+    const ca=caixa(a),cb=caixa(b);
+    if(['x','y','z'].some(k=>ca[k+'1']<cb[k+'0']-1e-5||cb[k+'1']<ca[k+'0']-1e-5)) return null;
+    const ma=a.malha?malhaMundo(a):malhaDoPrisma(a),mb=b.malha?malhaMundo(b):malhaDoPrisma(b);
+    if(ma.aberta||mb.aberta) return null;
+    function solid(m) {
+      const polygons=[],reverse=volume(m.v,m.faces)<0;
+      for(const original of m.faces) {
+        const face=reverse?original.slice().reverse():original;
+        const n=normal3(face.map(i=>m.v[i])),drop=n.map(Math.abs).indexOf(Math.max(...n.map(Math.abs))),axes=['x','y','z'].filter((_,i)=>i!==drop);
+        const flat=face.flatMap(i=>axes.map(k=>m.v[i][k]));
+        const triangles=triangulador.earcut(flat,null,2);
+        for(let i=0;i<triangles.length;i+=3) {
+          let t=triangles.slice(i,i+3).map(j=>face[j]);
+          if(dot3(normal3(t.map(j=>m.v[j])),n)<0)t=t.reverse();
+          const pts=t.map(j=>m.v[j]);
+          const u=sub3(pts[1],pts[0]),v=sub3(pts[2],pts[0]);
+          if(Math.hypot(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0])<1e-7)continue;
+          polygons.push(new CSG.Polygon(pts.map(p=>new CSG.Vertex([p.x,p.y,p.z],n))));
+        }
+      }
+      return CSG.fromPolygons(polygons);
+    }
+    let polygons;
+    try { polygons=solid(ma).union(solid(mb)).toPolygons(); }
+    catch(error) { return null; } // malha inválida ou limite numérico do BSP
+    if(!polygons.length) return null;
+    const v=[],map=new Map(),faces=[];
+    for(const p of polygons) {
+      const face=p.vertices.map(q=>{
+        const pt={x:limpa(q.pos.x),y:limpa(q.pos.y),z:limpa(q.pos.z)},key=['x','y','z'].map(k=>Math.round(pt[k]*1e5)).join(',');
+        if(!map.has(key)){map.set(key,v.length);v.push(pt);}return map.get(key);
+      });
+      if(new Set(face).size>=3)faces.push(face);
+    }
+    // BSP pode deixar um vértice no meio da aresta de outra face. Partir
+    // ambos os lados nesse ponto evita junções em T e mantém a malha fechada.
+    const split=faces.map(face=>face.flatMap((id,k)=>{
+      const p=v[id],q=v[face[(k+1)%face.length]],d=sub3(q,p),len=dot3(d,d),extra=[];
+      for(let j=0;j<v.length;j++)if(j!==id&&j!==face[(k+1)%face.length]){
+        const r=sub3(v[j],p),t=dot3(r,d)/(len||1);
+        if(t>1e-6&&t<1-1e-6&&Math.hypot(...r.map((c,i)=>c-t*d[i]))<1e-5)extra.push([t,j]);
+      }
+      extra.sort((a,b)=>a[0]-b[0]);return [id,...extra.map(e=>e[1])];
+    }));
+    const edgeFaces=new Map();
+    for(let i=0;i<split.length;i++)for(let j=0;j<split[i].length;j++){
+      const key=[split[i][j],split[i][(j+1)%split[i].length]].sort((a,b)=>a-b).join(':');
+      if(!edgeFaces.has(key))edgeFaces.set(key,[]);edgeFaces.get(key).push(i);
+    }
+    if([...edgeFaces.values()].some(fs=>fs.length!==2)) return null;
+    const adj=split.map(()=>[]);
+    for(const [i,j] of edgeFaces.values()){adj[i].push(j);adj[j].push(i);}
+    const visited=new Set([0]),queue=[0];
+    for(let k=0;k<queue.length;k++)for(const j of adj[queue[k]])if(!visited.has(j)){visited.add(j);queue.push(j);}
+    if(visited.size!==split.length)return null; // sólidos soltos ou contato só por ponto/aresta
+    const va=Math.abs(volume(ma.v,ma.faces)),vb=Math.abs(volume(mb.v,mb.faces)),vu=Math.abs(volume(v,split)),tol=Math.max(1e-3,(va+vb)*1e-5);
+    if(vu<Math.max(va,vb)-tol||vu>va+vb+tol)return null;
+    return formaDeMalha(a,{v,faces:fundirCoplanares(v,split),aberta:false});
   }
 
   // Volume de uma malha fechada (teorema da divergência, faces em leque).

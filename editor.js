@@ -1885,7 +1885,7 @@
       // Mesclar aparece com duas ou mais formas marcadas; se não der, fica apagado com o motivo.
       if (marcadas.length > 1) {
         if (G.mesclarVarias(marcadas)) itens.push(['Mesclar', mesclarMarcadas]);
-        else itens.push(['Mesclar', null, true], ['dica', 'Para mesclar, as formas precisam se encostar por uma face inteira, sem entrar uma na outra: os mesmos cantos no mesmo lugar, ou a mesma medida na direção em que se juntam (por exemplo, a mesma profundidade).']);
+        else itens.push(['Mesclar', null, true], ['dica', 'Para mesclar sólidos, encoste parte de uma face ou sobreponha os volumes. Peças separadas, abertas ou em contato só por ponto ou aresta não formam um sólido único.']);
       }
       // Recortar só aparece com 3+ vértices marcados que formam uma área dentro da forma.
       const base = baseMarcada();
